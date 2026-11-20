@@ -36,3 +36,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run test:rust
+        env:
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.com
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.com
