@@ -1,0 +1,15 @@
+node_modules/
+dist/
+target/
+.exo/
+app/src-tauri/gen/
+*.log
+.factory/
+test-results/
+playwright-report/
+.taste-skill/
+kit/evals/results/
+*.DS_Store
+.claude/
+docs/specs/
+research/

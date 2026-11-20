@@ -1,0 +1,4 @@
+{
+  "role": "builder",
+  "prompt": "Task: make slug in src/slug.mjs turn a title into a URL slug. It lower-cases the text, drops leading and trailing spaces and joins the words with a single hyphen, however many spaces separate them. test/slug.test.mjs fails today.\nFiles: src/slug.mjs, test/slug.test.mjs\nProof: node --test test/slug.test.mjs\nThe checkout is the current directory. Report the result in your usual report layout."
+}

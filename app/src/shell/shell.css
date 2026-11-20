@@ -1,0 +1,72 @@
+:root[data-translucent] body {
+  background: transparent;
+}
+
+:root[data-translucent] .shell-frame {
+  background: color-mix(in srgb, var(--frame) 55%, transparent);
+}
+
+[data-panel][data-sliding] {
+  transition: flex-grow 200ms var(--ease-out);
+}
+
+[data-slide] {
+  animation: sidebar-slide 180ms var(--ease-out) backwards;
+}
+
+[data-slide="in-right"] {
+  --slide-from: 12px;
+}
+
+[data-slide="in-left"] {
+  --slide-from: -12px;
+}
+
+@keyframes sidebar-slide {
+  from {
+    opacity: 0;
+    transform: translateX(var(--slide-from));
+  }
+}
+
+.status-dot {
+  transition:
+    background-color 200ms var(--ease-out),
+    border-color 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out);
+}
+
+.status-dot[data-tone="running"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: status-pulse 2.4s var(--ease-out) infinite;
+}
+
+@keyframes status-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-panel][data-sliding] {
+    transition: none;
+  }
+
+  [data-slide] {
+    animation: none;
+  }
+
+  .status-dot::after {
+    animation: none;
+  }
+}

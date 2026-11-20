@@ -1,0 +1,4 @@
+{
+  "role": "builder",
+  "prompt": "Task: fix totalCents in src/cart.mjs so each item counts its quantity: an item of 250 cents with quantity 2 adds 500 cents.\nFiles: src/cart.mjs\nProof: node --test test/cart.test.mjs\nThe checkout is the current directory. Report the result in your usual report layout."
+}

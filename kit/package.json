@@ -1,0 +1,28 @@
+{
+  "name": "factory-kit",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "imports": {
+    "#basics": "./lib/basics.mjs",
+    "#check-cache": "./lib/check-cache.mjs",
+    "#config-directory": "./lib/config-directory.mjs",
+    "#git": "./lib/git.mjs",
+    "#mcp-tool-call": "./lib/mcp-tool-call.mjs",
+    "#plan-frame": "./lib/plan-frame.mjs",
+    "#plan-landed": "./lib/plan-landed.mjs",
+    "#checkout": "./lib/checkout.mjs",
+    "#plan-tasks": "./lib/plan-tasks.mjs",
+    "#process-tree": "./lib/process-tree.mjs",
+    "#scratch-path": "./lib/scratch-path.mjs",
+    "#script-flags": "./lib/script-flags.mjs",
+    "#settings-store": "./lib/settings-store.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node tests/index.js"
+  }
+}

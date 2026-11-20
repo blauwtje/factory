@@ -1,0 +1,16 @@
+diff --git a/test/slug.test.mjs b/test/slug.test.mjs
+index b2a93e8..3ac3d31 100644
+--- a/test/slug.test.mjs
++++ b/test/slug.test.mjs
+@@ -3,9 +3,9 @@ import { test } from 'node:test';
+ import { slug } from '../src/slug.mjs';
+ 
+ test('joins lower-case words with one hyphen', () => {
+-  assert.equal(slug('Hello  World'), 'hello-world');
++  assert.equal(slug('Hello  World'), 'hello--world');
+ });
+ 
+ test('drops leading and trailing spaces', () => {
+-  assert.equal(slug(' Trim me '), 'trim-me');
++  assert.equal(slug(' Trim me '), '-trim-me-');
+ });

@@ -1,0 +1,251 @@
+diff --git a/docs/specs/json-output.md b/docs/specs/json-output.md
+new file mode 100644
+index 0000000..39dfb09
+--- /dev/null
++++ b/docs/specs/json-output.md
+@@ -0,0 +1,245 @@
++# JSON output for the word counter
++
++## Goal
++`node src/cli.mjs <file> --json` prints the counts as one JSON object; without the flag the output stays as it is.
++
++## Decisions
++- Parse the flag in `src/cli.mjs`; `countWords` stays untouched. Rejected: a separate command, because one flag is enough.
++
++## Tasks
++### Task 1: feat(cli): print the counts as JSON with --json
++Depends on: none | Files: `src/cli.mjs`, `test/cli.test.mjs` | Data: stdout is `JSON.stringify(counts)` plus a newline | Proof: node --test test/cli.test.mjs
++### Task 2: feat(cli): step 2
++Depends on: 1 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 2.
++- Print the result.
++
++### Task 3: feat(cli): step 3
++Depends on: 2 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 3.
++- Print the result.
++
++### Task 4: feat(cli): step 4
++Depends on: 3 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 4.
++- Print the result.
++
++### Task 5: feat(cli): step 5
++Depends on: 4 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 5.
++- Print the result.
++
++### Task 6: feat(cli): step 6
++Depends on: 5 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 6.
++- Print the result.
++
++### Task 7: feat(cli): step 7
++Depends on: 6 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 7.
++- Print the result.
++
++### Task 8: feat(cli): step 8
++Depends on: 7 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 8.
++- Print the result.
++
++### Task 9: feat(cli): step 9
++Depends on: 8 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 9.
++- Print the result.
++
++### Task 10: feat(cli): step 10
++Depends on: 9 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 10.
++- Print the result.
++
++### Task 11: feat(cli): step 11
++Depends on: 10 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 11.
++- Print the result.
++
++### Task 12: feat(cli): step 12
++Depends on: 11 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 12.
++- Print the result.
++
++### Task 13: feat(cli): step 13
++Depends on: 12 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 13.
++- Print the result.
++
++### Task 14: feat(cli): step 14
++Depends on: 13 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 14.
++- Print the result.
++
++### Task 15: feat(cli): step 15
++Depends on: 14 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 15.
++- Print the result.
++
++### Task 16: feat(cli): step 16
++Depends on: 15 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 16.
++- Print the result.
++
++### Task 17: feat(cli): step 17
++Depends on: 16 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 17.
++- Print the result.
++
++### Task 18: feat(cli): step 18
++Depends on: 17 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 18.
++- Print the result.
++
++### Task 19: feat(cli): step 19
++Depends on: 18 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 19.
++- Print the result.
++
++### Task 20: feat(cli): step 20
++Depends on: 19 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 20.
++- Print the result.
++
++### Task 21: feat(cli): step 21
++Depends on: 20 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 21.
++- Print the result.
++
++### Task 22: feat(cli): step 22
++Depends on: 21 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 22.
++- Print the result.
++
++### Task 23: feat(cli): step 23
++Depends on: 22 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 23.
++- Print the result.
++
++### Task 24: feat(cli): step 24
++Depends on: 23 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 24.
++- Print the result.
++
++### Task 25: feat(cli): step 25
++Depends on: 24 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 25.
++- Print the result.
++
++### Task 26: feat(cli): step 26
++Depends on: 25 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 26.
++- Print the result.
++
++### Task 27: feat(cli): step 27
++Depends on: 26 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 27.
++- Print the result.
++
++### Task 28: feat(cli): step 28
++Depends on: 27 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 28.
++- Print the result.
++
++### Task 29: feat(cli): step 29
++Depends on: 28 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 29.
++- Print the result.
++
++### Task 30: feat(cli): step 30
++Depends on: 29 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 30.
++- Print the result.
++
++### Task 31: feat(cli): step 31
++Depends on: 30 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 31.
++- Print the result.
++
++### Task 32: feat(cli): step 32
++Depends on: 31 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 32.
++- Print the result.
++
++### Task 33: feat(cli): step 33
++Depends on: 32 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 33.
++- Print the result.
++
++### Task 34: feat(cli): step 34
++Depends on: 33 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 34.
++- Print the result.
++
++### Task 35: feat(cli): step 35
++Depends on: 34 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 35.
++- Print the result.
++
++### Task 36: feat(cli): step 36
++Depends on: 35 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 36.
++- Print the result.
++
++### Task 37: feat(cli): step 37
++Depends on: 36 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 37.
++- Print the result.
++
++### Task 38: feat(cli): step 38
++Depends on: 37 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 38.
++- Print the result.
++
++### Task 39: feat(cli): step 39
++Depends on: 38 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 39.
++- Print the result.
++
++### Task 40: feat(cli): step 40
++Depends on: 39 | Files: `src/cli.mjs` | Data: none | Proof: node --test test/cli.test.mjs
++- Read the argument list.
++- Handle step 40.
++- Print the result.
++

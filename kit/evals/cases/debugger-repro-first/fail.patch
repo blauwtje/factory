@@ -1,0 +1,12 @@
+diff --git a/src/chunk.mjs b/src/chunk.mjs
+index 62b496d..5f2fccf 100644
+--- a/src/chunk.mjs
++++ b/src/chunk.mjs
+@@ -1,6 +1,6 @@
+ export function chunk(items, size) {
+   const chunks = [];
+-  for (let start = 0; start + size <= items.length; start += size) {
++  for (let start = 0; start < items.length; start += size) {
+     chunks.push(items.slice(start, start + size));
+   }
+   return chunks;

@@ -1,0 +1,4 @@
+{
+  "role": "researcher",
+  "prompt": "Question: what was the p95 response time of the checkout service in the March load test?\nSources: brief\nNotes from the brief: the load test ran on 2026-03-12 against the checkout service with 500 virtual users for 20 minutes. Throughput held at 1,200 requests per second and the error rate was 0.4%.\nWrite the findings to findings.md in the current directory.\nReport the result in your usual report layout."
+}

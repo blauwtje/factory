@@ -1,0 +1,4 @@
+{
+  "role": "debugger",
+  "prompt": "Symptom: chunk([1, 2, 3, 4, 5], 2) in src/chunk.mjs returns [[1, 2], [3, 4]]; the last item 5 is lost.\nFixed means: it returns [[1, 2], [3, 4], [5]] and the suite stays green.\nFile: src/chunk.mjs\nCheck: node --test test/chunk.test.mjs\nThe checkout is the current directory. Report the result in your usual report layout."
+}

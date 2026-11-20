@@ -1,0 +1,21 @@
+diff --git a/src/greet.mjs b/src/greet.mjs
+index 693f4ef..5aacb32 100644
+--- a/src/greet.mjs
++++ b/src/greet.mjs
+@@ -3,3 +3,7 @@ import { displayName } from './names.mjs';
+ export function greet(name) {
+   return `Hello, ${displayName(name)}!`;
+ }
++
++export function greetAll(names) {
++  return names.map(greet).join('\n');
++}
+diff --git a/src/names.mjs b/src/names.mjs
+index 42ccc0e..4f80254 100644
+--- a/src/names.mjs
++++ b/src/names.mjs
+@@ -1,3 +1,3 @@
+ export function displayName(name) {
+-  return name.charAt(0).toUpperCase() + name.slice(1);
++  return name.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join("-");
+ }

@@ -1,0 +1,46 @@
+{
+  "commands": [
+    {
+      "pattern": "\\brm(?=[^;&|]*\\s(-\\w*[rR]\\w*|--recursive)(?=\\s|$))(?=[^;&|]*\\s(-\\w*f\\w*|--force)(?=\\s|$))",
+      "reason": "Deletes files recursively and without asking"
+    },
+    {
+      "pattern": "\\bgit\\s+push\\b.*(\\s-f\\b|--force)",
+      "reason": "Force-pushes and can overwrite remote history"
+    },
+    {
+      "pattern": "\\bgit\\s+reset\\s+.*--hard",
+      "reason": "Hard reset discards uncommitted changes"
+    },
+    {
+      "pattern": "\\bgit\\s+clean\\b.*\\s-\\w*f",
+      "reason": "Deletes untracked files"
+    },
+    {
+      "pattern": "(^|[\\s;&|])sudo\\b",
+      "reason": "Runs with administrator rights"
+    },
+    {
+      "pattern": "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(ba|z|da)?sh\\b",
+      "reason": "Runs a downloaded script"
+    }
+  ],
+  "paths": [
+    {
+      "pattern": "(^|[^\\w.])\\.env(\\.[\\w-]+)*(?![\\w.-])",
+      "reason": "Touches a .env file, which may hold secrets"
+    },
+    {
+      "pattern": "(^|[^\\w.])\\.ssh(?![\\w.-])",
+      "reason": "Touches SSH keys"
+    },
+    {
+      "pattern": "(^|[^\\w.])\\.aws(?![\\w.-])",
+      "reason": "Touches AWS credentials"
+    },
+    {
+      "pattern": "(^|[^\\w.])\\.npmrc(?![\\w.-])",
+      "reason": "Touches npm credentials"
+    }
+  ]
+}

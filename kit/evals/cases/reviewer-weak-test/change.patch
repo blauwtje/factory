@@ -1,0 +1,27 @@
+diff --git a/src/average.mjs b/src/average.mjs
+new file mode 100644
+index 0000000..6e3f8a5
+--- /dev/null
++++ b/src/average.mjs
+@@ -0,0 +1,4 @@
++export function average(numbers) {
++  if (numbers.length === 0) return 0;
++  return numbers.reduce((sum, number) => sum + number, 0) / numbers.length;
++}
+diff --git a/test/average.test.mjs b/test/average.test.mjs
+new file mode 100644
+index 0000000..af513ad
+--- /dev/null
++++ b/test/average.test.mjs
+@@ -0,0 +1,11 @@
++import assert from 'node:assert/strict';
++import { test } from 'node:test';
++import { average } from '../src/average.mjs';
++
++test('returns a number', () => {
++  assert.equal(typeof average([1, 2, 3]), 'number');
++});
++
++test('returns a number for an empty array', () => {
++  assert.equal(typeof average([]), 'number');
++});

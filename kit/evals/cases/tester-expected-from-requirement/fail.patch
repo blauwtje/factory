@@ -1,0 +1,13 @@
+diff --git a/test/shipping-boundary.test.mjs b/test/shipping-boundary.test.mjs
+new file mode 100644
+index 0000000..5ab3008
+--- /dev/null
++++ b/test/shipping-boundary.test.mjs
+@@ -0,0 +1,7 @@
++import assert from 'node:assert/strict';
++import { test } from 'node:test';
++import { shippingCents } from '../src/shipping.mjs';
++
++test('an order of exactly 5000 cents pays the flat rate', () => {
++  assert.equal(shippingCents(5000), 499);
++});

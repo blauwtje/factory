@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b5cb8"/>
+      <stop offset="1" stop-color="#173a7d"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#plate)"/>
+  <g transform="translate(0 -16)"><path fill="#f6f8fc" fill-rule="evenodd" d="M232 772 V330 L418.7 500 V330 L605.3 500 V330 L792 500 V772 Z
+    M281 600 h88 v112 h-88 Z M468 600 h88 v112 h-88 Z M655 600 h88 v112 h-88 Z"/>
+  <path fill="#f0a04b" d="M468 600 h88 v112 h-88 Z"/></g>
+</svg>

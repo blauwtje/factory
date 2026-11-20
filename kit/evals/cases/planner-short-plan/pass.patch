@@ -1,0 +1,17 @@
+diff --git a/docs/specs/json-output.md b/docs/specs/json-output.md
+new file mode 100644
+index 0000000..3da5e32
+--- /dev/null
++++ b/docs/specs/json-output.md
+@@ -0,0 +1,11 @@
++# JSON output for the word counter
++
++## Goal
++`node src/cli.mjs <file> --json` prints the counts as one JSON object; without the flag the output stays as it is.
++
++## Decisions
++- Parse the flag in `src/cli.mjs`; `countWords` stays untouched. Rejected: a separate command, because one flag is enough.
++
++## Tasks
++### Task 1: feat(cli): print the counts as JSON with --json
++Depends on: none | Files: `src/cli.mjs`, `test/cli.test.mjs` | Data: stdout is `JSON.stringify(counts)` plus a newline | Proof: node --test test/cli.test.mjs

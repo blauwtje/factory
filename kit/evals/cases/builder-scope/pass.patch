@@ -1,0 +1,11 @@
+diff --git a/src/cart.mjs b/src/cart.mjs
+index 4f75989..6143ea9 100644
+--- a/src/cart.mjs
++++ b/src/cart.mjs
+@@ -1,5 +1,5 @@
+ export function totalCents(items) {
+   let total = 0;
+-  for (const item of items) total += item.cents;
++  for (const item of items) total += item.cents * item.quantity;
+   return total;
+ }

@@ -1,0 +1,100 @@
+.stats-heat[data-level="0"] {
+  background: var(--chart-heat-0);
+}
+
+.stats-heat[data-level="1"] {
+  background: var(--chart-heat-1);
+}
+
+.stats-heat[data-level="2"] {
+  background: var(--chart-heat-2);
+}
+
+.stats-heat[data-level="3"] {
+  background: var(--chart-heat-3);
+}
+
+.stats-heat[data-level="4"] {
+  background: var(--chart-heat-4);
+}
+
+.stats-heat {
+  transition:
+    transform var(--duration-press) var(--ease-out),
+    box-shadow var(--duration-press) var(--ease-out),
+    background-color var(--duration-panel) var(--ease-out);
+}
+
+.stats-heat[data-active] {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+.stats-progress-fill {
+  background: var(--accent);
+  clip-path: inset(0 calc(100% - var(--fraction) * 100%) 0 0 round 9999px);
+  transition: clip-path var(--duration-panel) var(--ease-out);
+}
+
+.stats-segment {
+  transition: opacity var(--duration-press) var(--ease-out);
+}
+
+.stats-area .recharts-area-area {
+  fill-opacity: var(--chart-area);
+}
+
+.stats-rise,
+.stats-enter > * {
+  animation: stats-rise var(--duration-panel) var(--ease-out) both;
+}
+
+.stats-enter > :nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.stats-enter > :nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.stats-enter > :nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.stats-enter > :nth-child(5) {
+  animation-delay: 140ms;
+}
+
+@keyframes stats-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-progress-fill {
+    transition: none;
+  }
+
+  .stats-heat {
+    transition: background-color var(--duration-panel) var(--ease-out);
+  }
+
+  .stats-heat[data-active] {
+    transform: none;
+  }
+
+  .stats-rise.stats-rise,
+  .stats-enter.stats-enter > * {
+    animation-name: stats-fade;
+    animation-duration: var(--duration-panel) !important;
+    animation-delay: 0ms;
+  }
+}
+
+@keyframes stats-fade {
+  from {
+    opacity: 0;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "specs": "docs",
+  "models": {
+    "plan": { "role": "planner", "model": "claude-opus-5-5", "effort": "high" },
+    "plan-large": { "role": "planner", "model": "claude-opus-5-5", "effort": "xhigh" },
+    "build": { "role": "builder", "model": "claude-sonnet-5-5", "effort": "medium" },
+    "build-heavy": { "role": "builder", "model": "claude-sonnet-5-5", "effort": "high" },
+    "mechanical": { "role": "builder", "model": "claude-haiku-5-5", "effort": "medium" },
+    "test": { "role": "tester", "model": "claude-sonnet-5-5", "effort": "medium" },
+    "review": { "role": "reviewer", "model": "claude-opus-5-5", "effort": "high" },
+    "security": { "role": "reviewer", "model": "claude-opus-5-5", "effort": "xhigh" },
+    "design": { "role": "ui-designer", "model": "claude-opus-5-5", "effort": "high" },
+    "research": { "role": "researcher", "model": "claude-sonnet-5-5", "effort": "medium" },
+    "lookup": { "role": "researcher", "model": "claude-haiku-5-5", "effort": "medium" },
+    "tradeoff": { "role": "researcher", "model": "claude-opus-5-5", "effort": "high" },
+    "debug": { "role": "debugger", "model": "claude-opus-5-5", "effort": "high" },
+    "debug-heavy": { "role": "debugger", "model": "claude-opus-5-5", "effort": "xhigh" }
+  }
+}

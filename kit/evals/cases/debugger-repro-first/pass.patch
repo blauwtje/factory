@@ -1,0 +1,24 @@
+diff --git a/src/chunk.mjs b/src/chunk.mjs
+index 62b496d..5f2fccf 100644
+--- a/src/chunk.mjs
++++ b/src/chunk.mjs
+@@ -1,6 +1,6 @@
+ export function chunk(items, size) {
+   const chunks = [];
+-  for (let start = 0; start + size <= items.length; start += size) {
++  for (let start = 0; start < items.length; start += size) {
+     chunks.push(items.slice(start, start + size));
+   }
+   return chunks;
+diff --git a/test/chunk.test.mjs b/test/chunk.test.mjs
+index ea55ad9..3a1c2fd 100644
+--- a/test/chunk.test.mjs
++++ b/test/chunk.test.mjs
+@@ -5,3 +5,7 @@ import { chunk } from '../src/chunk.mjs';
+ test('splits an even list into equal chunks', () => {
+   assert.deepEqual(chunk([1, 2, 3, 4], 2), [[1, 2], [3, 4]]);
+ });
++
++test('keeps the shorter last chunk', () => {
++  assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
++});

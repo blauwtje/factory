@@ -1,0 +1,12 @@
+{"type":"system","subtype":"hook_started","hook_name":"SessionStart:startup","session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"system","subtype":"init","cwd":"/tmp/work","session_id":"cd30f059-8cb6-442a-b396-8b20301ce662","tools":["Read","Write"],"model":"claude-haiku-5-5","permissionMode":"bypassPermissions","apiKeySource":"none"}
+{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-haiku-5-5","role":"assistant","content":[]}},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"","estimated_tokens":50}},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Hi. What do"}},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"assistant","message":{"model":"claude-haiku-5-5","role":"assistant","content":[{"type":"thinking","thinking":"","signature":"abc"}]},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"assistant","message":{"model":"claude-haiku-5-5","role":"assistant","content":[{"type":"text","text":"Hi. What do you want to work on?"}]},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"assistant","message":{"model":"claude-haiku-5-5","role":"assistant","content":[{"type":"tool_use","id":"toolu_01","name":"Read","input":{"file_path":"/tmp/work/a.txt"},"caller":{"type":"direct"}}]},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_01","type":"tool_result","content":"1\thello\n2\t"}]},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_02","type":"tool_result","content":[{"type":"text","text":"no such file"}],"is_error":true}]},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1795222800,"rateLimitType":"seven_day","isUsingOverage":false,"unifiedWindows":{"seven_day":{"utilization":0.39,"resetsAt":1795222800,"status":"allowed"}}},"session_id":"cd30f059-8cb6-442a-b396-8b20301ce662"}
+{"type":"result","subtype":"success","is_error":false,"stop_reason":"end_turn","session_id":"cd30f059-8cb6-442a-b396-8b20301ce662","total_cost_usd":0.0016}

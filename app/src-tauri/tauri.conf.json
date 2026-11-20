@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Factory",
+  "version": "0.1.0",
+  "identifier": "dev.factory.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run notices && npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Factory",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 600,
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "trafficLightPosition": { "x": 18, "y": 22 },
+        "transparent": true,
+        "windowEffects": { "effects": ["sidebar", "mica"] }
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        "default",
+        { "identifier": "window-chrome", "windows": ["main"], "permissions": ["core:window:allow-start-dragging"] }
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "resources": { "../../kit/": "kit/", "../../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md" },
+    "macOS": { "signingIdentity": "-", "entitlements": "Entitlements.plist" }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlEMzJEQjQwOEY0NzI3NkUKUldSdUowZVBRTnN5bmRDV1R5bnN5SFdsbDZQNk5Jamo1ZE8wZ2pmcXFnM2NtdlhDUlgvb1E3bVkK",
+      "endpoints": ["https://github.com/blauwtje/factory/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

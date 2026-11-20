@@ -1,0 +1,62 @@
+
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+
+const RUN_VARIABLES = ['FACTORY_RUN', 'FACTORY_RUN_DIR', 'FACTORY_RUN_TASK', 'FACTORY_RUN_SESSION'];
+
+for (const name of RUN_VARIABLES) delete process.env[name];
+
+const INHERITED_GIT_VARIABLE = /^(GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)|GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX|COMMON_DIR|OBJECT_DIRECTORY|NAMESPACE)|GIT_(AUTHOR|COMMITTER)_\w+)$/;
+
+const GIT_TEST_CONFIG = [
+  ['maintenance.auto', 'false'],
+  ['init.defaultBranch', 'main'],
+  ['user.useConfigOnly', 'true']
+];
+
+function isolateGit(home) {
+  for (const name of Object.keys(process.env)) if (INHERITED_GIT_VARIABLE.test(name)) delete process.env[name];
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  delete process.env.XDG_CONFIG_HOME;
+  process.env.GIT_CONFIG_GLOBAL = os.devNull;
+  process.env.GIT_CONFIG_NOSYSTEM = '1';
+  GIT_TEST_CONFIG.forEach(([key, value], index) => {
+    process.env[`GIT_CONFIG_KEY_${index}`] = key;
+    process.env[`GIT_CONFIG_VALUE_${index}`] = value;
+  });
+  process.env.GIT_CONFIG_COUNT = String(GIT_TEST_CONFIG.length);
+}
+
+function isolateSettings(root) {
+  const project = path.join(root, 'project');
+  fs.mkdirSync(project);
+  process.env.CLAUDE_PROJECT_DIR = project;
+  const config = path.join(root, 'claude-config');
+  fs.mkdirSync(config);
+  process.env.CLAUDE_CONFIG_DIR = config;
+}
+
+function createRunRoot() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'factory-test-'));
+  process.env.FACTORY_TEST_TMP_ROOT = root;
+  process.env.TMPDIR = root;
+  process.on('exit', () => {
+    try {
+      fs.rmSync(root, { recursive: true, force: true, maxRetries: 3 });
+    } catch (error) {
+      process.stderr.write(`cleanup of ${root} failed: ${error.message}\n`);
+    }
+  });
+  return root;
+}
+
+if (!process.env.FACTORY_TEST_TMP_ROOT) {
+  const root = createRunRoot();
+  const home = path.join(root, 'home');
+  fs.mkdirSync(home);
+  isolateGit(home);
+  isolateSettings(root);
+}

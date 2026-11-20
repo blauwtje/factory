@@ -1,0 +1,4 @@
+{
+  "role": "builder",
+  "prompt": "Task: add greetAll(names) to src/greet.mjs. It returns the greeting of each name from greet, joined with a newline; display names such as mary-jane come out as Mary-Jane.\nFiles: src/greet.mjs\nProof: node --test test/greet.test.mjs\nThe checkout is the current directory. Report the result in your usual report layout."
+}

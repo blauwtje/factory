@@ -1,0 +1,4 @@
+{
+  "role": "reviewer",
+  "prompt": "Review the diff HEAD~1..HEAD against the plan in plan.md. The checkout is the current directory. Run the plan's proof and any command you need to check a claim. Report the result in your usual report layout."
+}

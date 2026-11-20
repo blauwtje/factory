@@ -1,0 +1,7 @@
+{
+  "name": "factory",
+  "version": "0.1.0",
+  "description": "Skills and scripts for specs, proof-first builds, diagnosis, review and handoffs.",
+  "license": "MIT",
+  "keywords": ["skills", "planning", "debugging"]
+}

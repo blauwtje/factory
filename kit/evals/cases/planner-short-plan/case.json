@@ -1,0 +1,4 @@
+{
+  "role": "planner",
+  "prompt": "Goal: let the word counter print its result as JSON. `node src/cli.mjs <file> --json` should print the counts as one JSON object; without the flag the output stays as it is.\nWrite the plan to docs/specs/json-output.md. Write no product code.\nThe checkout is the current directory. Report the result in your usual report layout."
+}

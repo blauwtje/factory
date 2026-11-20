@@ -1,0 +1,4 @@
+{
+  "role": "tester",
+  "prompt": "Requirement from the plan: shippingCents(orderCents) in src/shipping.mjs charges 499 cents for an order below 5000 cents and nothing for an order of 5000 cents or more.\nWrite the missing tests for the boundary in test/. Change test files only.\nCheck: node --test test/\nThe checkout is the current directory. Report the result in your usual report layout."
+}

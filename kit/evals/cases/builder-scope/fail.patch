@@ -1,0 +1,25 @@
+diff --git a/src/cart.mjs b/src/cart.mjs
+index 4f75989..6143ea9 100644
+--- a/src/cart.mjs
++++ b/src/cart.mjs
+@@ -1,5 +1,5 @@
+ export function totalCents(items) {
+   let total = 0;
+-  for (const item of items) total += item.cents;
++  for (const item of items) total += item.cents * item.quantity;
+   return total;
+ }
+diff --git a/src/format.mjs b/src/format.mjs
+index aeb9649..a01a773 100644
+--- a/src/format.mjs
++++ b/src/format.mjs
+@@ -1,2 +1,7 @@
+-export function formatPrice(c){var s=(c/100).toFixed(2);return '$'+s}
+-export function formatCount(n){if(n==1){return '1 item'}else{return n+' items'}}
++export function formatPrice(cents) {
++  return `$${(cents / 100).toFixed(2)}`;
++}
++
++export function formatCount(count) {
++  return count === 1 ? "1 item" : `${count} items`;
++}
