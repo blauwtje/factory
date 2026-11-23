@@ -492,6 +492,15 @@ fn accounts_with_the_same_email_and_org_merge_into_the_one_that_reports_limits()
 }
 
 #[test]
+fn a_login_without_an_org_merges_with_the_same_email() {
+    let stale = AccountRow { org_id: None, ..login_row("default", false) };
+    let kept = merged(&[stale, login_row("/profiles/a", true)]);
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].id, "/profiles/a");
+    assert!(kept[0].is_default);
+}
+
+#[test]
 fn the_longest_folder_rule_wins_and_covers_every_folder_below() {
     let rules = std::collections::HashMap::from([
         ("/code".to_string(), "work".to_string()),

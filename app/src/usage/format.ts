@@ -7,6 +7,16 @@ export function resetTime(resetsAt: number) {
   return `${date.toLocaleDateString([], { weekday: "short" })} ${time}`;
 }
 
+export function resetIn(resetsAt: number, now: number) {
+  const left = Math.max(0, Math.floor(resetsAt - now));
+  const days = Math.floor(left / 86_400);
+  const hours = Math.floor((left % 86_400) / 3_600);
+  const minutes = Math.floor((left % 3_600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m ${left % 60}s`;
+}
+
 export const resetText = (limit: UsageLimit) => (limit.resets_at === null ? limit.label : `${limit.label} resets ${resetTime(limit.resets_at)}`);
 
 export const shownPercent = (limit: UsageLimit, remaining: boolean) => (remaining ? Math.max(0, 100 - limit.percent) : limit.percent);

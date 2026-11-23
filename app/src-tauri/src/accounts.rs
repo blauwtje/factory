@@ -107,10 +107,9 @@ pub fn plan_name(tier: Option<&str>, subscription: Option<&str>) -> Option<Strin
 fn same_login(a: &AccountRow, b: &AccountRow) -> bool {
     a.id == b.id
         || matches!(
-            (&a.email, &a.org_id, &b.email, &b.org_id),
-            (Some(email), Some(org), Some(other_email), Some(other_org))
-                if email.eq_ignore_ascii_case(other_email) && org == other_org
-        )
+            (&a.email, &b.email),
+            (Some(email), Some(other_email)) if email.eq_ignore_ascii_case(other_email)
+        ) && (a.org_id.is_none() || b.org_id.is_none() || a.org_id == b.org_id)
 }
 
 fn has_limits(row: &AccountRow) -> bool {

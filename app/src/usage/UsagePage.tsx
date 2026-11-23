@@ -96,7 +96,13 @@ function AccountCard({ account, now, ...projects }: { account: Account; now: num
         <div className="flex items-center gap-2">
           <AccountName account={account} />
           {account.plan && <Badge variant="outline">{account.plan}</Badge>}
-          {account.is_default && <Badge>Default</Badge>}
+          {account.is_default ? (
+            <Badge>Default</Badge>
+          ) : (
+            <Button type="button" variant="outline" size="xs" aria-label={`Set as default, ${account.label}`} onClick={() => void setDefaultAccount(account.id)}>
+              Set as default
+            </Button>
+          )}
         </div>
         {account.email && <span className="truncate text-label text-muted">{account.email}</span>}
       </header>
@@ -125,11 +131,6 @@ function AccountCard({ account, now, ...projects }: { account: Account; now: num
           {account.refreshing ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />}
           Refresh
         </Button>
-        {!account.is_default && (
-          <Button type="button" variant="ghost" size="sm" aria-label={`Set as default, ${account.label}`} onClick={() => void setDefaultAccount(account.id)}>
-            Set as default
-          </Button>
-        )}
         <ConfirmDialog
           trigger={
             <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${account.label}`}>

@@ -106,6 +106,25 @@ test("the meter shows the account name and plan above the limits", async () => {
   expect(screen.getByText("Weekly")).toBeTruthy();
 });
 
+test("the meter counts down to each reset", async () => {
+  const later = Math.floor(Date.now() / 1000) + 2 * 86_400 + 3.5 * 3_600;
+  accounts = [{ ...ultra, limits: [{ ...limit("weekly_all", "Weekly", 42), resets_at: later }] }];
+  render(<UsageMeter />);
+  await settled();
+  expect(screen.getByText("Resets in 2d 3h")).toBeTruthy();
+});
+
+test("the meter shows the accounts of the last run before the backend answers", async () => {
+  render(<UsageMeter />);
+  await settled();
+  cleanup();
+  mockIPC((cmd) => (cmd === "list_accounts" ? new Promise(() => {}) : undefined), { shouldMockEvents: true });
+  vi.resetModules();
+  ({ UsageMeter } = await import("./UsageMeter"));
+  render(<UsageMeter />);
+  expect(screen.getByText("Jane Doe · Ultra")).toBeTruthy();
+});
+
 test("a folder rule covers subfolders and the longest rule wins", async () => {
   const { folderAccountId } = await import("./folderRules");
   const rules = { "~/code": "a", "~/code/app": "b" };

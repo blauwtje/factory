@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { claudeInfo, listJobs, onAgentEvent, setTrayStatus, type JobRow } from "@/ipc";
+import { readPersisted, writePersisted } from "@/lib/persisted";
 import { usePref } from "@/lib/prefs";
 import { useScheme } from "@/lib/theme";
 import type { ClaudeResult } from "@/shell/SettingsPage";
@@ -41,10 +42,17 @@ function toProjects(jobs: ListedJob[], asking: ReadonlySet<string>): ProjectSumm
 }
 
 export function App() {
-  const [jobs, setJobs] = useState<ListedJob[]>([]);
+  const [jobs, setJobs] = useState<ListedJob[]>(() => readPersisted<ListedJob[]>("jobs") ?? []);
   const [asking, setAsking] = useState<ReadonlyMap<string, string>>(new Map());
   const [claude, setClaude] = useState<ClaudeResult | null>(null);
-  const reload = useCallback(() => void listJobs().then(setJobs), []);
+  const reload = useCallback(
+    () =>
+      void listJobs().then((rows) => {
+        writePersisted("jobs", rows);
+        setJobs(rows);
+      }),
+    [],
+  );
   const scheme = useScheme();
   const [palette] = usePref("palette", "graphite");
 

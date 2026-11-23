@@ -39,6 +39,16 @@ test("lists the sessions of list_jobs under their project", async () => {
   expect(screen.getByRole("heading", { name: "app" })).not.toBeNull();
 });
 
+test("the sessions of the last run show before list_jobs answers", async () => {
+  mockIPC((cmd) => (cmd === "list_jobs" ? [{ id: "j1", title: "Fix login", status: "building", project_path: "~/code/app", project_name: "app" }] : cmd === "list_projects" ? [] : undefined), { shouldMockEvents: true });
+  render(<App />);
+  await within(await screen.findByRole("navigation", { name: "Sessions" })).findByText("Fix login");
+  cleanup();
+  mockIPC((cmd) => (cmd === "list_jobs" ? new Promise(() => {}) : cmd === "list_projects" ? [] : undefined), { shouldMockEvents: true });
+  render(<App />);
+  expect(within(screen.getByRole("navigation", { name: "Sessions" })).getByText("Fix login")).not.toBeNull();
+});
+
 test("Home and the sidebar render while claude_info is still pending", async () => {
   mockIPC(
     (cmd) => {

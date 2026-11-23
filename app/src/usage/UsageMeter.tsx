@@ -7,10 +7,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { duration, ease } from "@/lib/motion";
 import { usePref } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { resetText, resetTime, shownPercent } from "./format";
+import { resetIn, resetText, resetTime, shownPercent } from "./format";
 import { LimitBar } from "./LimitBar";
 import { usageTone } from "./tone";
-import { accountFor, useAccounts } from "./useAccounts";
+import { accountFor, useAccounts, useNow } from "./useAccounts";
 
 const PERCENT = { style: "percent", maximumFractionDigits: 0 } as const;
 
@@ -27,6 +27,7 @@ export function UsageMeter({ onOpen, accountId }: { onOpen?: () => void; account
   const [showUsage] = usePref("showUsage", true);
   const [mode] = usePref("usageMode", "used");
   const [enters] = useState(() => accounts === null);
+  const now = useNow(1_000);
   const account = accounts && accountFor(accounts, accountId);
 
   if (!showUsage) return null;
@@ -95,6 +96,7 @@ export function UsageMeter({ onOpen, accountId }: { onOpen?: () => void; account
                 format={PERCENT}
               />
               <LimitBar percent={limit.percent} shown={shownPercent(limit, remaining)} className="col-span-2" />
+              {limit.resets_at !== null && <span className="col-span-2 text-caption tabular-nums text-faint">Resets in {resetIn(limit.resets_at, now)}</span>}
             </span>
           ))}
         </TooltipTrigger>
