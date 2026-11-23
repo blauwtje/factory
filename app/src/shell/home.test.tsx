@@ -210,3 +210,28 @@ test("the sidebar title drags the window", async () => {
   await mountShell();
   expect(screen.getByRole("heading", { name: "Factory" }).hasAttribute("data-tauri-drag-region")).toBe(true);
 });
+
+test("Home lists only the sessions the sidebar filter shows and leaves merged ones out", async () => {
+  const now = Date.now() / 1000;
+  localStorage.setItem("factory.sessionWindow", "3");
+  render(
+    <Shell
+      projects={[
+        {
+          path: "~/code/app",
+          name: "app",
+          sessions: [
+            { id: "s1", title: "Old failure", status: "failed", createdAt: now - 10 * 86_400 },
+            { id: "s2", title: "Shipped work", status: "merged", createdAt: now - 3_600 },
+            { id: "s3", title: "Fresh idea", status: "waiting", createdAt: now - 3_600 },
+          ],
+        },
+      ]}
+    />,
+  );
+  await act(async () => {});
+  const main = screen.getByRole("main");
+  expect(within(main).queryByText("Old failure")).toBeNull();
+  expect(within(main).queryByText("Shipped work")).toBeNull();
+  expect(within(main).getByText("Fresh idea")).not.toBeNull();
+});

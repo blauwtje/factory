@@ -9,8 +9,8 @@ const projects: ProjectSummary[] = [
     path: "~/code/app",
     name: "app",
     sessions: [
-      { id: "j1", title: "Fix login", status: "merged", createdAt: 20 },
-      { id: "j2", title: "Add search", status: "merged", createdAt: 10 },
+      { id: "j1", title: "Fix login", status: "waiting", createdAt: 20 },
+      { id: "j2", title: "Add search", status: "waiting", createdAt: 10 },
     ],
   },
 ];

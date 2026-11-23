@@ -35,7 +35,7 @@ const COMPARE: Record<SessionSort, (a: SessionSummary, b: SessionSummary) => num
   needs_reply: (a, b) => Number(needsReply(b)) - Number(needsReply(a)) || activeAt(b) - activeAt(a),
 };
 
-function visible(session: SessionSummary, view: View, now: number) {
+export function visible(session: SessionSummary, view: Pick<View, "window" | "archived">, now = Date.now() / 1000) {
   if (session.archived && !view.archived) return false;
   const stamp = session.lastActiveAt ?? session.createdAt;
   return view.window === 0 || stamp === undefined || now - stamp <= view.window * DAY;

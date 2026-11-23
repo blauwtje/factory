@@ -21,6 +21,7 @@ import { DictateButton } from "@/voice/DictateButton";
 import { ProjectAvatar } from "./brand";
 import { ProjectNotice } from "./ProjectNotice";
 import { ProjectPicker } from "./ProjectPicker";
+import { visible } from "./arrange";
 import { STATUS_TONE, STATUS_WORD, StatusDot } from "./status";
 import { dayPart } from "./greeting";
 import { relativeTime } from "./time";
@@ -300,7 +301,10 @@ function Desk({ projects, initialPath, onOpen, onCreated }: Omit<Props, "compose
   const [prompt, setPrompt] = useState("");
   const [projectPath, setProjectPath] = useState(initialPath ?? "");
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const sessions = sessionsOf(projects);
+  const [days] = usePref("sessionWindow", 0);
+  const [archived] = usePref("showArchived", false);
+  const all = sessionsOf(projects);
+  const sessions = all.filter(({ session }) => session.status !== "merged" && visible(session, { window: days, archived }));
   const needsYou = sessions.filter(({ session }) => NEEDS_YOU.includes(STATUS_TONE[session.status]));
   const running = sessions.filter(({ session }) => STATUS_TONE[session.status] === "running");
   const recent = sessions.filter(({ session }) => !NEEDS_YOU.includes(STATUS_TONE[session.status]) && STATUS_TONE[session.status] !== "running").slice(0, RECENT);
@@ -333,7 +337,7 @@ function Desk({ projects, initialPath, onOpen, onCreated }: Omit<Props, "compose
           <div className="flex flex-1 flex-col gap-4">
             {projectPath && <ProjectNotice path={projectPath} />}
             <div className="flex flex-col gap-10 pt-6">
-              {sessions.length === 0 && <Steps />}
+              {all.length === 0 && <Steps />}
               {sections.map(({ title, count, body }) => (
                 <Section key={title} title={title} count={count}>
                   {body}
