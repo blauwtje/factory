@@ -6,6 +6,7 @@ import { ModelMenu } from "@/components/ai/model-menu";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { claudePermissionMode, permissionModes, setAgentModel, setPermissionMode } from "@/ipc";
+import { cached, fetchCached } from "@/lib/cache";
 import { EFFORT_ITEMS, MODEL_ITEMS } from "@/new-job/types";
 import type { AgentRow } from "./types";
 
@@ -27,15 +28,7 @@ const humanise = (id: string) =>
 
 const labelOf = (id: string) => KNOWN_MODES[id]?.label ?? humanise(id);
 
-let modesRequest: Promise<string[]> | undefined;
-
-function loadModes() {
-  modesRequest ??= permissionModes().catch((error) => {
-    modesRequest = undefined;
-    throw error;
-  });
-  return modesRequest;
-}
+const MODES = "permission-modes";
 
 function PermissionOption({ id }: { id: string }) {
   const key = useId();
@@ -62,10 +55,10 @@ function PermissionOption({ id }: { id: string }) {
 
 export function PermissionMenu({ mode, title, onChange }: { mode: string; title: string; onChange: (mode: string) => void }) {
   const heading = useId();
-  const [modes, setModes] = useState<string[]>();
+  const [modes, setModes] = useState(() => cached<string[]>(MODES));
   const [claudeMode, setClaudeMode] = useState("");
   useEffect(() => {
-    loadModes().then(setModes, () => undefined);
+    fetchCached(MODES, permissionModes).then(setModes, () => undefined);
     claudePermissionMode().then((next) => setClaudeMode(next ?? ""), () => undefined);
   }, []);
   if (!modes?.length) return null;

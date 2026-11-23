@@ -166,6 +166,7 @@ export type Customize = {
   context?: { total: number; max: number; categories: { name: string; tokens: number; kind: "used" | "deferred" | "buffer" | "free" }[] } | null;
 };
 
+export const customizeKey = (path: string | null) => `customize:${path ?? "all"}`;
 export const listCustomize = (project_path: string | null) =>
   invoke<Customize>("list_customize", { project_path });
 export const measureCustomize = (project_path: string | null) =>

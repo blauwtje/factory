@@ -5,8 +5,8 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup as SegmentedGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { listCustomize, measureCustomize, resetRole, type Customize, type CustomizeItem, type CustomizeKind } from "@/ipc";
-import { readPersisted, writePersisted } from "@/lib/persisted";
+import { customizeKey, listCustomize, measureCustomize, resetRole, type Customize, type CustomizeItem, type CustomizeKind } from "@/ipc";
+import { cached, remember } from "@/lib/cache";
 import { cn } from "@/lib/utils";
 import { NEW_ROLE, RoleEditor, TeamDefaults, useRoles } from "@/settings/AgentsTab";
 import { Section } from "@/settings/parts";
@@ -32,18 +32,15 @@ function measureOnce(path: string | null) {
   return started;
 }
 
-const customizeKey = (path: string | null) => `customize:${path ?? "all"}`;
-
 function useCustomize(path: string | null) {
   const key = customizeKey(path);
-  const [data, setData] = useState(() => readPersisted<Customize>(key));
+  const [data, setData] = useState(() => cached<Customize>(key) ?? null);
   const [fresh, setFresh] = useState(false);
   const [measuring, setMeasuring] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const store = (next: Customize) => {
-    writePersisted(key, next);
-    setData(next);
+    setData(remember(key, next));
     setFresh(true);
   };
 

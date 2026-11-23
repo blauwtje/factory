@@ -1,12 +1,18 @@
 import { motion } from "motion/react";
 import { useEffect, useState, type KeyboardEvent, type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
-import { listCustomize } from "@/ipc";
+import { customizeKey, listCustomize, type Customize } from "@/ipc";
+import { cached, fetchCached } from "@/lib/cache";
 import { duration, ease } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { completeSlash, filterSlash, GROUPS, openSlash, slashEntries, BUILT_IN, type SlashEntry } from "./slash";
 
 const MENU_ID = "slash-menu";
+
+function cachedEntries(project: string | null) {
+  const items = cached<Customize>(customizeKey(project))?.items;
+  return items ? slashEntries(items) : BUILT_IN;
+}
 const optionId = (entry: SlashEntry) => `slash-option-${entry.id}`;
 
 export function useSlashMenu(
@@ -15,21 +21,22 @@ export function useSlashMenu(
   textarea: RefObject<HTMLTextAreaElement | null>,
   project: string | null,
 ) {
-  const [entries, setEntries] = useState<SlashEntry[]>(BUILT_IN);
+  const key = customizeKey(project);
+  const [fresh, setFresh] = useState<{ key: string; entries: SlashEntry[] }>();
+  const entries = fresh?.key === key ? fresh.entries : cachedEntries(project);
   const [cursor, setCursor] = useState(0);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
-    Promise.resolve()
-      .then(() => listCustomize(project))
-      .then(({ items }) => current && setEntries(slashEntries(items)))
+    fetchCached(key, () => listCustomize(project))
+      .then(({ items }) => current && setFresh({ key, entries: slashEntries(items) }))
       .catch(() => undefined);
     return () => {
       current = false;
     };
-  }, [project]);
+  }, [key, project]);
 
   const slash = openSlash(draft, cursor);
   const matches = slash && dismissed !== draft ? filterSlash(entries, slash.query) : [];

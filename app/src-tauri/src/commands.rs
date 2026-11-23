@@ -212,6 +212,7 @@ pub struct Core {
     progress: Mutex<Progress>,
     refreshing: AtomicBool,
     claude_info: Mutex<Option<ClaudeInfo>>,
+    permission_modes: Mutex<Option<Vec<String>>>,
     kit: Kit,
     store: Mutex<Store>,
     probing: Mutex<HashSet<String>>,
@@ -371,6 +372,7 @@ impl Core {
             }),
             refreshing: AtomicBool::new(false),
             claude_info: Mutex::new(None),
+            permission_modes: Mutex::new(None),
             kit,
             store: Mutex::new(store),
             probing: Mutex::default(),
@@ -798,7 +800,13 @@ impl Core {
     }
 
     pub fn permission_modes(&self) -> Result<Vec<String>, CoreError> {
-        Ok(agent::permission_modes(&system_env())?)
+        let mut cached = self.permission_modes.lock().unwrap();
+        if let Some(modes) = cached.as_ref() {
+            return Ok(modes.clone());
+        }
+        let modes = agent::permission_modes(&system_env())?;
+        *cached = Some(modes.clone());
+        Ok(modes)
     }
 
     pub fn claude_permission_mode(&self) -> String {

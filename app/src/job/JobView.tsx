@@ -7,7 +7,7 @@ import { approvePlan, listAgents, listJobs, jobOverlaps, mergeForecast, mergeJob
 import { Button } from "@/components/ui/button";
 import { readPersisted } from "@/lib/persisted";
 import { usePref } from "@/lib/prefs";
-import { agentsByJob } from "@/lib/sessionCache";
+import { cached, remember } from "@/lib/cache";
 import { cn } from "@/lib/utils";
 import { TitleActions } from "@/shell/title-actions";
 import type { PlanPhase } from "@/chat/PlanCard";
@@ -55,7 +55,7 @@ function toBusMessage(agentId: string, event: StreamEvent): BusMessage | undefin
 }
 
 export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus?: Focus; onCustomizeMcp?: () => void }) {
-  const [agents, setAgents] = useState<AgentRow[] | undefined>(() => agentsByJob.get(jobId));
+  const [agents, setAgents] = useState<AgentRow[] | undefined>(() => cached(`agents:${jobId}`));
   const [job, setJob] = useState<JobRow | undefined>(() => readPersisted<JobRow[]>("jobs")?.find((j) => j.id === jobId));
   const [outcome, setOutcome] = useState<MergeOutcome>();
   const [forecast, setForecast] = useState<MergeForecast>();
@@ -82,8 +82,7 @@ export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus
     () =>
       Promise.all([
         listAgents(jobId).then((rows) => {
-          agentsByJob.set(jobId, rows);
-          setAgents(rows);
+          setAgents(remember(`agents:${jobId}`, rows));
         }),
         listJobs().then((jobs) => {
           const found = jobs.find((j) => j.id === jobId);

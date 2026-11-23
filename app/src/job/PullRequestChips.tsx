@@ -4,7 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { jobLinks, onAgentEvent, type JobLinks, type PullRequest } from "@/ipc";
-import { linksByJob } from "@/lib/sessionCache";
+import { cached, fetchCached } from "@/lib/cache";
 import { cn } from "@/lib/utils";
 
 const STATES: Record<PullRequest["state"], { icon: LucideIcon; ink: string; word: string }> = {
@@ -23,13 +23,10 @@ const CHECKS: Record<NonNullable<PullRequest["checks"]>, { icon: LucideIcon; ink
 const open = (url: string) => () => void openUrl(url).catch(() => undefined);
 
 export function useJobLinks(jobId: string) {
-  const [links, setLinks] = useState<JobLinks | undefined>(() => linksByJob.get(jobId));
+  const key = `links:${jobId}`;
+  const [links, setLinks] = useState<JobLinks | undefined>(() => cached(key));
   useEffect(() => {
-    const load = () =>
-      jobLinks(jobId).then((found) => {
-        linksByJob.set(jobId, found);
-        setLinks(found);
-      }, () => void linksByJob.delete(jobId));
+    const load = () => fetchCached(key, () => jobLinks(jobId)).then(setLinks, () => undefined);
     load();
     window.addEventListener("focus", load);
     const stop = onAgentEvent(({ event }) => "Result" in event && load());
@@ -37,7 +34,7 @@ export function useJobLinks(jobId: string) {
       window.removeEventListener("focus", load);
       stop();
     };
-  }, [jobId]);
+  }, [jobId, key]);
   return links;
 }
 

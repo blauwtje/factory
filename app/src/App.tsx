@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { claudeInfo, listJobs, onAgentEvent, setTrayStatus, type JobRow } from "@/ipc";
+import { claudeInfo, listJobs, onAgentEvent, setTrayStatus, type ClaudeInfo, type JobRow } from "@/ipc";
+import { cached, fetchCached } from "@/lib/cache";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import { usePref } from "@/lib/prefs";
 import { useScheme } from "@/lib/theme";
@@ -44,7 +45,10 @@ function toProjects(jobs: ListedJob[], asking: ReadonlySet<string>): ProjectSumm
 export function App() {
   const [jobs, setJobs] = useState<ListedJob[]>(() => readPersisted<ListedJob[]>("jobs") ?? []);
   const [asking, setAsking] = useState<ReadonlyMap<string, string>>(new Map());
-  const [claude, setClaude] = useState<ClaudeResult | null>(null);
+  const [claude, setClaude] = useState<ClaudeResult | null>(() => {
+    const info = cached<ClaudeInfo>("claude-info");
+    return info ? { info } : null;
+  });
   const reload = useCallback(
     () =>
       void listJobs().then((rows) => {
@@ -62,7 +66,7 @@ export function App() {
   }, [scheme, palette]);
 
   useEffect(() => {
-    claudeInfo().then(
+    fetchCached("claude-info", claudeInfo).then(
       (info) => setClaude({ info }),
       (reason) => setClaude({ error: String(reason) }),
     );
