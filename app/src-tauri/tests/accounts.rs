@@ -317,6 +317,18 @@ fn a_failed_probe_sets_the_error_and_keeps_the_old_limits() {
 }
 
 #[test]
+fn a_probe_without_limits_is_asked_again_once() {
+    let fixture = fixture();
+    let profile = fixture.profile("work");
+    fs::write(profile.join("no-limits-once"), "").unwrap();
+    fixture.core.refresh_accounts_now();
+    let accounts = fixture.core.list_accounts().unwrap();
+    let work = account(&accounts, &profile.to_string_lossy());
+    assert_eq!(work.error, None);
+    assert!(!work.limits.is_empty());
+}
+
+#[test]
 fn removing_hides_a_found_account_and_deletes_an_added_one() {
     let fixture = fixture();
     let found = fixture.profile("found");
@@ -498,6 +510,9 @@ fn a_login_without_an_org_merges_with_the_same_email() {
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].id, "/profiles/a");
     assert!(kept[0].is_default);
+    let org_two = AccountRow { org_id: Some("org-2".into()), ..login_row("/profiles/b", true) };
+    let no_org = AccountRow { org_id: None, ..login_row("/profiles/c", true) };
+    assert_eq!(merged(&[no_org, login_row("default", true), org_two]).len(), 3);
 }
 
 #[test]

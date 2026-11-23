@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline";
@@ -112,6 +112,11 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     const limits = account === "ultra"
       ? [limit("weekly_all", 12), limit("weekly_scoped", 3, { model: { id: null, display_name: "Fable" } })]
       : [limit("session", 36), limit("weekly_all", 55)];
+    if (configDir && existsSync(join(configDir, "no-limits-once"))) {
+      rmSync(join(configDir, "no-limits-once"));
+      emit({ type: "control_response", response: { subtype: "success", request_id: message.request_id, response: { subscription_type: "max", rate_limits: null } } });
+      return;
+    }
     if (configDir && existsSync(join(configDir, "fail"))) {
       emit({ type: "control_response", response: { subtype: "error", request_id: message.request_id, error: "Not logged in" } });
       return;

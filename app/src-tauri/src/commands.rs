@@ -1735,8 +1735,14 @@ impl Core {
 
     fn probe_account(&self, env: &agent::Env, id: &str) {
         let config_dir = config_dir_of(id);
-        let usage = accounts::probe(env, config_dir.as_deref())
-            .and_then(|reply| accounts::parse_usage(&reply));
+        let ask = || {
+            accounts::probe(env, config_dir.as_deref())
+                .and_then(|reply| accounts::parse_usage(&reply))
+        };
+        let usage = ask().or_else(|_| {
+            thread::sleep(accounts::PROBE_RETRY);
+            ask()
+        });
         self.record_usage(id, usage);
     }
 

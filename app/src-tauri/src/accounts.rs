@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -17,6 +17,7 @@ use crate::transcripts::epoch_seconds;
 
 pub const DEFAULT_ID: &str = "default";
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(20);
+pub const PROBE_RETRY: Duration = Duration::from_secs(2);
 const PROBE_REQUEST_ID: &str = "u1";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -104,12 +105,31 @@ pub fn plan_name(tier: Option<&str>, subscription: Option<&str>) -> Option<Strin
     }
 }
 
-fn same_login(a: &AccountRow, b: &AccountRow) -> bool {
-    a.id == b.id
-        || matches!(
-            (&a.email, &b.email),
-            (Some(email), Some(other_email)) if email.eq_ignore_ascii_case(other_email)
-        ) && (a.org_id.is_none() || b.org_id.is_none() || a.org_id == b.org_id)
+fn orgs_of<'a>(rows: &'a [AccountRow], email: &str) -> HashSet<&'a str> {
+    rows.iter()
+        .filter(|row| {
+            !row.hidden
+                && row
+                    .email
+                    .as_deref()
+                    .is_some_and(|other| other.eq_ignore_ascii_case(email))
+        })
+        .filter_map(|row| row.org_id.as_deref())
+        .collect()
+}
+
+fn same_login(rows: &[AccountRow], a: &AccountRow, b: &AccountRow) -> bool {
+    if a.id == b.id {
+        return true;
+    }
+    let (Some(email), Some(other_email)) = (&a.email, &b.email) else {
+        return false;
+    };
+    email.eq_ignore_ascii_case(other_email)
+        && match (&a.org_id, &b.org_id) {
+            (Some(org), Some(other_org)) => org == other_org,
+            _ => orgs_of(rows, email).len() <= 1,
+        }
 }
 
 fn has_limits(row: &AccountRow) -> bool {
@@ -119,7 +139,7 @@ fn has_limits(row: &AccountRow) -> bool {
 fn primary_of<'a>(rows: &'a [AccountRow], row: &AccountRow) -> &'a AccountRow {
     let members: Vec<&AccountRow> = rows
         .iter()
-        .filter(|other| !other.hidden && same_login(row, other))
+        .filter(|other| !other.hidden && same_login(rows, row, other))
         .collect();
     members
         .iter()
