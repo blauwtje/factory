@@ -103,6 +103,7 @@ function KindView({ data, kind, reload }: { data: Customize; kind: CustomizeKind
         viewKey={kind}
         projectPath={data.project_path}
         searchLabel={`Search ${KINDS[kind].noun.toLowerCase()}s`}
+        backLabel={SECTIONS.find((entry) => entry.id === KINDS[kind].section)!.label}
         grouped={!UNGROUPED.includes(kind)}
         rowEnd={rowEnd}
         actions={canEdit(kind) && <NewButton kind={kind} onNew={() => editor.startNew(kind)} />}
@@ -114,6 +115,7 @@ function KindView({ data, kind, reload }: { data: Customize; kind: CustomizeKind
 
 function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
   const [view, setView] = useState<"agents" | "defaults">("agents");
+  const [returned, setReturned] = useState(false);
   const { roles, tools, error, reload: reloadRoles } = useRoles();
   const editor = useItemEditor(data.project_path, reload, data.items);
   const selected = editor.selected;
@@ -148,9 +150,12 @@ function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
     return isOwn(entry) ? editor.rowEnd(entry) : <ReadOnlyMark item={entry} />;
   };
 
+  const browsing = view === "agents";
+  const open = browsing && detail !== null;
+  if (open && !returned) setReturned(true);
   return (
     <>
-      <div className="flex items-center gap-3">
+      <div hidden={open} data-enter={returned ? "back" : undefined} className="flex items-center gap-3">
         <SegmentedGroup aria-label="Show agents or team defaults" value={[view]} onValueChange={([next]) => next && setView(next as typeof view)}>
           <ToggleGroupItem value="agents">Agents</ToggleGroupItem>
           <ToggleGroupItem value="defaults">Team defaults</ToggleGroupItem>
@@ -161,7 +166,7 @@ function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
           </span>
         )}
       </div>
-      {view === "agents" ? (
+      {browsing ? (
         <ItemBrowser
           items={items}
           selected={selected}
@@ -171,6 +176,7 @@ function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
           viewKey="agent"
           projectPath={data.project_path}
           searchLabel="Search agents"
+          backLabel="Agents"
           grouped
           rowEnd={rowEnd}
           actions={<NewMenu kind="agent" project={data.project_path} extra={<DropdownMenuItem onClick={() => editor.select(NEW)}>Factory team</DropdownMenuItem>} onNew={(scope) => editor.startNew("agent", scope)} />}
@@ -208,25 +214,27 @@ function CustomizeView({ section, project, onProject, onSection }: { section: Se
     return <KindView key={kind} data={data} kind={kind} reload={reload} />;
   };
   return (
-    <Section
-      title={label}
-      description={kind ? KINDS[kind].description : OVERVIEW}
-      fill
-      aside={
-        <>
-          {updating && <span className="text-label text-faint">Updating…</span>}
-          <ProjectPicker value={project} onChange={(path) => guardLeave(() => onProject(path))} label="Project:" optional />
-          <MeasureButton measuring={measuring} onMeasure={measure} />
-        </>
-      }
-    >
-      {error && (
-        <p role="alert" className="text-label text-failed-ink">
-          {error}
-        </p>
-      )}
-      {body()}
-    </Section>
+    <div key={section} data-enter className="flex min-h-0 flex-1 flex-col">
+      <Section
+        title={label}
+        description={kind ? KINDS[kind].description : OVERVIEW}
+        fill
+        aside={
+          <>
+            {updating && <span className="text-label text-faint">Updating…</span>}
+            <ProjectPicker value={project} onChange={(path) => guardLeave(() => onProject(path))} label="Project:" optional />
+            <MeasureButton measuring={measuring} onMeasure={measure} />
+          </>
+        }
+      >
+        {error && (
+          <p role="alert" className="text-label text-failed-ink">
+            {error}
+          </p>
+        )}
+        {body()}
+      </Section>
+    </div>
   );
 }
 

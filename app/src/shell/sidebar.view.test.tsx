@@ -35,7 +35,7 @@ const noop = () => {};
 
 function renderSidebar() {
   render(
-    <Sidebar projects={projects} page="home" selectedId={null} onSelect={noop} onHome={noop} onUsage={noop} onNewSession={noop} onSearch={noop} onCustomize={noop} onSettings={noop} onCollapse={noop} onChanged={noop} />,
+    <Sidebar projects={projects} page="home" selectedId={null} onSelect={noop} onHome={noop} onUsage={noop} onNewSession={noop} onSearch={noop} onCustomize={noop} onSettings={noop} onChanged={noop} />,
   );
 }
 

@@ -332,7 +332,7 @@ export function SidebarFooter({ action: { label, icon: Icon, onClick }, children
   );
 }
 
-export function Sidebar({ projects, page, selectedId, onSelect, onHome, onUsage, onNewSession, onSearch, onCustomize, onSettings, onCollapse, onChanged }: Props) {
+export function Sidebar({ projects, page, selectedId, onSelect, onHome, onUsage, onNewSession, onSearch, onCustomize, onSettings, onChanged }: Omit<Props, "onCollapse">) {
   const [group] = usePref("sessionGroup", "project");
   const [sort] = usePref("sessionSort", "active");
   const [days] = usePref("sessionWindow", 0);
@@ -345,8 +345,7 @@ export function Sidebar({ projects, page, selectedId, onSelect, onHome, onUsage,
     { label: "Customize", icon: SlidersVertical, onClick: onCustomize },
   ];
   return (
-    <aside className="flex h-full min-w-60 flex-col">
-      <SidebarHeader onCollapse={onCollapse} />
+    <>
       <NavList actions={actions} />
 
       <div className="flex h-7 shrink-0 items-center justify-between pl-4 pr-2">
@@ -374,6 +373,6 @@ export function Sidebar({ projects, page, selectedId, onSelect, onHome, onUsage,
       <SidebarFooter action={{ label: "Settings", icon: Settings, onClick: onSettings }}>
         <UsageMeter onOpen={onUsage} accountId={accountId} />
       </SidebarFooter>
-    </aside>
+    </>
   );
 }

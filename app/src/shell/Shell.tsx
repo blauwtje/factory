@@ -1,5 +1,6 @@
 import { House, PanelLeftOpen } from "lucide-react";
-import { useEffect, useRef, useState, type MouseEvent, type TransitionEvent } from "react";
+import { AnimatePresence, motion, useIsPresent, type Variants } from "motion/react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type Ref, type TransitionEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -7,6 +8,7 @@ import type { Focus } from "@/chat/ChatView";
 import { CustomizePage } from "@/customize/CustomizePage";
 import { guardLeave } from "@/customize/ItemEditor";
 import { JobView } from "@/job/JobView";
+import { duration, ease } from "@/lib/motion";
 import { isMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import type { SearchHit } from "@/ipc";
@@ -14,7 +16,7 @@ import { CommandPalette } from "./CommandPalette";
 import { Home, type Compose } from "./Home";
 import { NAV_LABELS, SECTIONS, SettingsNav } from "./SettingsNav";
 import { SettingsPage, type ClaudeResult } from "./SettingsPage";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, SidebarHeader } from "./Sidebar";
 import { StatusBadge } from "./status";
 import { TitleActionsProvider, TitleActionsSlot } from "./title-actions";
 import { useNotices } from "./notices";
@@ -29,6 +31,37 @@ const POPUPS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="lis
 type Slide = "in-right" | "in-left" | null;
 
 const slideOnClick = (event: MouseEvent, direction: "in-right" | "in-left"): Slide => (event.detail > 0 ? direction : null);
+
+const PANE_SHIFT = 16;
+
+const shift = (slide: Slide, leaving: boolean) => ((slide === "in-left") !== leaving ? -PANE_SHIFT : PANE_SHIFT);
+
+const paneMotion: Variants = {
+  enter: (slide: Slide) => ({ opacity: 0, x: shift(slide, false) }),
+  center: (slide: Slide) => ({ opacity: 1, x: 0, transition: slide ? { duration: duration.panel, delay: duration.swap, ease: ease.out } : { duration: 0 } }),
+  exit: (slide: Slide) => ({ opacity: 0, x: shift(slide, true), transition: slide ? { duration: duration.swap, ease: ease.out } : { duration: 0 } }),
+};
+
+function NavPane({ slide, children, ref }: { slide: Slide; children: ReactNode; ref?: Ref<HTMLDivElement> }) {
+  const present = useIsPresent();
+  return (
+    <motion.div
+      ref={ref}
+      custom={slide}
+      variants={paneMotion}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      inert={!present}
+      aria-hidden={!present || undefined}
+      data-pane
+      data-slide={slide ?? undefined}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 const isTyping = (element: Element | null) => element?.matches("input, textarea, select, [contenteditable='true']") ?? false;
 
@@ -161,29 +194,35 @@ export function Shell({ projects, claude = CLAUDE_UNCHECKED, onSessionsChanged }
             onTransitionEnd={endSlide}
             onResize={(size) => setCollapsed(size.inPixels === 0)}
           >
-            <div key={isOverlay(page) ? page : "app"} data-slide={slide ?? undefined} className="h-full">
-              {isOverlay(page) ? (
-                <SettingsNav group={page} section={section} onSection={(next) => guardLeave(() => setSection(next))} onNew={(event) => {
-                    newSession();
-                    setSlide(slideOnClick(event, "in-left"));
-                  }} onCollapse={toggleSidebar} />
-              ) : (
-                <Sidebar
-                  projects={projects}
-                  page={page}
-                  selectedId={page === "session" ? selectedId : null}
-                  onSelect={select}
-                  onHome={() => newSession()}
-                  onUsage={() => openOverlay("settings", "usage")}
-                  onNewSession={newSession}
-                  onSearch={() => setPaletteOpen(true)}
-                  onCustomize={(event) => openOverlay("customize", "overview", slideOnClick(event, "in-right"))}
-                  onSettings={(event) => openOverlay("settings", "general", slideOnClick(event, "in-right"))}
-                  onCollapse={toggleSidebar}
-                  onChanged={sessionsChanged}
-                />
-              )}
-            </div>
+            <aside className="flex h-full min-w-60 flex-col">
+              <SidebarHeader onCollapse={toggleSidebar} />
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <AnimatePresence initial={false} mode="popLayout" custom={slide}>
+                  <NavPane key={isOverlay(page) ? page : "app"} slide={slide}>
+                      {isOverlay(page) ? (
+                        <SettingsNav group={page} section={section} onSection={(next) => guardLeave(() => setSection(next))} onNew={(event) => {
+                            newSession();
+                            setSlide(slideOnClick(event, "in-left"));
+                          }} />
+                      ) : (
+                        <Sidebar
+                          projects={projects}
+                          page={page}
+                          selectedId={page === "session" ? selectedId : null}
+                          onSelect={select}
+                          onHome={() => newSession()}
+                          onUsage={() => openOverlay("settings", "usage")}
+                          onNewSession={newSession}
+                          onSearch={() => setPaletteOpen(true)}
+                          onCustomize={(event) => openOverlay("customize", "overview", slideOnClick(event, "in-right"))}
+                          onSettings={(event) => openOverlay("settings", "general", slideOnClick(event, "in-right"))}
+                          onChanged={sessionsChanged}
+                        />
+                      )}
+                  </NavPane>
+                </AnimatePresence>
+              </div>
+            </aside>
           </Panel>
           <Separator className="relative w-px bg-edge outline-none transition-colors duration-(--duration-press) before:absolute before:inset-y-0 before:-left-1 before:-right-2 hover:bg-accent/50 focus-visible:bg-accent focus-visible:shadow-[0_0_0_1px_var(--accent)] data-[separator=active]:bg-accent" />
           <Panel id="main" minSize={480}>
@@ -203,7 +242,7 @@ export function Shell({ projects, claude = CLAUDE_UNCHECKED, onSessionsChanged }
                 <TitleActionsSlot />
               </header>
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div key={page === "session" ? selectedId : page} data-enter={page === "session" ? "" : undefined} className="flex min-h-0 flex-1 flex-col">
+                <div key={page === "session" ? selectedId : page} data-enter={isOverlay(page) ? undefined : ""} className="flex min-h-0 flex-1 flex-col">
                   {page === "settings" && <SettingsPage claude={claude} section={section} />}
                   {page === "customize" && (
                     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-8 pb-6 pt-10">

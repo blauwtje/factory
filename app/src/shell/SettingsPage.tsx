@@ -394,7 +394,7 @@ function StatisticsSection() {
 export function SettingsPage({ claude, section }: { claude: ClaudeResult; section: SettingsSection }) {
   const [rechecked, setRechecked] = useState<ClaudeResult | null>(null);
   return (
-    <div key={section} className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
+    <div key={section} data-enter className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
       <div className={cn("w-full px-8", section === "statistics" ? "pb-6 pt-6" : "pb-12 pt-10")}>
         <Content section={section} claude={rechecked ?? claude} onResult={setRechecked} />
       </div>

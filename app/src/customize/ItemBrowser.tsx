@@ -1,5 +1,5 @@
-import { Lock, Search } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Lock, Search } from "lucide-react";
+import { useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,22 +131,20 @@ function Weight({ item, max }: { item: CustomizeItem; max: number }) {
   );
 }
 
-type RowProps = { item: CustomizeItem; open: boolean; controls: string; max: number; projectPath: string | null; end: ReactNode; endWidth: boolean; onSelect: (id: string | null) => void };
+type RowProps = { item: CustomizeItem; max: number; projectPath: string | null; end: ReactNode; endWidth: boolean; onSelect: (id: string | null) => void };
 
-function ItemRow({ item, open, controls, max, projectPath, end, endWidth, onSelect }: RowProps) {
+function ItemRow({ item, max, projectPath, end, endWidth, onSelect }: RowProps) {
   const nameId = useId();
   const descriptionId = useId();
   const badgesId = useId();
   return (
-    <li data-selected={open || undefined} className="relative flex items-center gap-3 px-4 py-2.5 transition-colors duration-(--duration-press) hover:bg-active/40 data-[selected]:bg-active">
+    <li className="group/row relative flex items-center gap-3 px-4 py-2.5 transition-colors duration-(--duration-press) hover:bg-active/40">
       <button
         type="button"
         data-item={item.id}
-        aria-expanded={open}
-        aria-controls={open ? controls : undefined}
         aria-labelledby={nameId}
         aria-describedby={item.description ? `${badgesId} ${descriptionId}` : badgesId}
-        onClick={() => onSelect(open ? null : item.id)}
+        onClick={() => onSelect(item.id)}
         className="flex min-w-0 flex-1 items-center gap-4 rounded-sm text-left ui-focus after:absolute after:inset-0"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -166,6 +164,7 @@ function ItemRow({ item, open, controls, max, projectPath, end, endWidth, onSele
           <span className="truncate text-caption tabular-nums text-faint">{usageText(item, projectPath)}</span>
         </span>
         <Weight item={item} max={max} />
+        <ChevronRight aria-hidden className="size-4 shrink-0 text-faint transition-[color,translate] duration-(--duration-press) group-hover/row:translate-x-0.5 group-hover/row:text-muted" />
       </button>
       {endWidth && <div className="relative z-10 flex w-16 shrink-0 items-center justify-end gap-0.5">{end}</div>}
     </li>
@@ -197,16 +196,64 @@ type Props = {
   viewKey?: string;
   projectPath?: string | null;
   searchLabel?: string;
+  backLabel?: string;
   grouped?: boolean;
   rowEnd?: (item: CustomizeItem) => ReactNode;
   actions?: ReactNode;
 };
 
-export function ItemBrowser({ items, selected, onSelect, detail, empty, viewKey = "default", projectPath = null, searchLabel = "Search", grouped, rowEnd, actions }: Props) {
+const POPUPS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
+
+function DetailPage({ detail, backLabel, onBack }: { detail: Detail; backLabel: string; onBack: () => void }) {
+  const back = useRef<HTMLButtonElement>(null);
+  const goBack = useEffectEvent(onBack);
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active === document.body || active?.closest("[hidden]")) back.current?.focus({ preventScroll: true });
+  });
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector(POPUPS)) return;
+      if ((event.target as HTMLElement).closest?.("input, textarea, select, [contenteditable='true']")) return;
+      event.preventDefault();
+      goBack();
+    }
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, []);
+  return (
+    <section aria-label={detail.label} data-enter="forward" data-scroll-inside className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-2">
+      <div>
+        <Button ref={back} variant="ghost" size="sm" aria-label={`Back to ${backLabel}`} onClick={onBack} className="-ml-2">
+          <ChevronLeft aria-hidden />
+          {backLabel}
+        </Button>
+      </div>
+      <div className={cn("w-full", detail.wide ? "max-w-[880px]" : "max-w-[720px]")}>{detail.content}</div>
+    </section>
+  );
+}
+
+export function ItemBrowser({ items, selected, onSelect, detail, empty, viewKey = "default", projectPath = null, searchLabel = "Search", backLabel = "Back", grouped, rowEnd, actions }: Props) {
   const [view, setView] = useView(viewKey);
   const [query, setQuery] = useState("");
-  const detailId = useId();
+  const [returned, setReturned] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const scrollTop = useRef(0);
+  const lastOpen = useRef<string | null>(null);
+  const open = detail !== null;
   const searchId = useId();
+  if (open && !returned) setReturned(true);
+
+  useEffect(() => {
+    if (selected) lastOpen.current = selected;
+  }, [selected]);
+
+  useLayoutEffect(() => {
+    if (open || !listRef.current) return;
+    listRef.current.scrollTop = scrollTop.current;
+    if (document.activeElement === document.body && lastOpen.current) focusRow(lastOpen.current);
+  }, [open]);
   useSlashFocus(searchId);
   const filters = FILTERS.filter(({ value, keep }) => {
     const kept = items.filter(keep).length;
@@ -253,11 +300,12 @@ export function ItemBrowser({ items, selected, onSelect, detail, empty, viewKey 
             {group.hint && <span className="min-w-0 truncate text-label text-faint">{group.hint}</span>}
           </div>
           <span className="w-16 shrink-0 text-right text-caption text-faint">At start</span>
+          <span aria-hidden className="w-4 shrink-0" />
           {endWidth && <span aria-hidden className="w-16 shrink-0" />}
         </div>
         <ul aria-label={group.title ?? searchLabel} className={cn(cardClass, "divide-y divide-rule overflow-hidden p-0")}>
           {group.items.map((item) => (
-            <ItemRow key={item.id} item={item} open={item.id === selected} controls={detailId} max={max} projectPath={projectPath} end={rowEnd?.(item) ?? null} endWidth={endWidth} onSelect={onSelect} />
+            <ItemRow key={item.id} item={item} max={max} projectPath={projectPath} end={rowEnd?.(item) ?? null} endWidth={endWidth} onSelect={onSelect} />
           ))}
         </ul>
       </div>
@@ -265,65 +313,63 @@ export function ItemBrowser({ items, selected, onSelect, detail, empty, viewKey 
   };
 
   return (
-    <div className={cn("grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-x-5 gap-y-4", detail && (detail.wide ? "grid-cols-[minmax(0,1fr)_28rem]" : "grid-cols-[minmax(0,1fr)_21rem]"))}>
-      <div className={cn("flex flex-wrap items-center gap-2", detail && "col-span-2")}>
-        {items.length > 0 && (
-          <>
-            <div className="relative w-64 max-w-full">
-              <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-faint" />
-              <Input
-                id={searchId}
-                type="search"
-                aria-label={searchLabel}
-                placeholder="Search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => event.key === "Escape" && query && (event.preventDefault(), setQuery(""))}
-                className="pr-8 pl-8"
-              />
-              {!query && <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>}
-            </div>
-            {filters.length > 1 && (
-              <ToggleGroup aria-label="Show" value={[filter.value]} onValueChange={([next]) => next && setView({ filter: next as Filter })}>
-                {filters.map(({ value, label, keep }) => (
-                  <ToggleGroupItem key={value} value={value} aria-label={label}>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div hidden={open} data-enter={returned ? "back" : undefined} onClickCapture={() => (scrollTop.current = listRef.current?.scrollTop ?? 0)} className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {items.length > 0 && (
+            <>
+              <div className="relative w-64 max-w-full">
+                <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-faint" />
+                <Input
+                  id={searchId}
+                  type="search"
+                  aria-label={searchLabel}
+                  placeholder="Search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => event.key === "Escape" && query && (event.preventDefault(), setQuery(""))}
+                  className="pr-8 pl-8"
+                />
+                {!query && <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>}
+              </div>
+              {filters.length > 1 && (
+                <ToggleGroup aria-label="Show" value={[filter.value]} onValueChange={([next]) => next && setView({ filter: next as Filter })}>
+                  {filters.map(({ value, label, keep }) => (
+                    <ToggleGroupItem key={value} value={value} aria-label={label}>
+                      {label}
+                      <span className="text-label tabular-nums text-faint">{items.filter(keep).length}</span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              )}
+            </>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            {items.length > 1 && (
+              <ToggleGroup aria-label="Sort by" value={[view.sort]} onValueChange={([next]) => next && setView({ sort: next as SortKey })}>
+                {SORTS.map(({ value, label }) => (
+                  <ToggleGroupItem key={value} value={value}>
                     {label}
-                    <span className="text-label tabular-nums text-faint">{items.filter(keep).length}</span>
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
             )}
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {items.length > 1 && (
-            <ToggleGroup aria-label="Sort by" value={[view.sort]} onValueChange={([next]) => next && setView({ sort: next as SortKey })}>
-              {SORTS.map(({ value, label }) => (
-                <ToggleGroupItem key={value} value={value}>
-                  {label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            {actions}
+          </div>
+        </div>
+        <div ref={listRef} data-scroll-inside className="flex min-h-0 flex-col gap-5 overflow-y-auto pb-2">
+          {list()}
+          {narrowed && shown.length > 0 && (
+            <p className="px-4 text-label text-faint">
+              {count(shown.length)} of {count(items.length)} shown.{" "}
+              <button type="button" onClick={clear} className="rounded-sm text-accent-text ui-focus hover:underline">
+                Show all
+              </button>
+            </p>
           )}
-          {actions}
         </div>
       </div>
-      <div data-scroll-inside className="flex min-h-0 flex-col gap-5 overflow-y-auto pb-2">
-        {list()}
-        {narrowed && shown.length > 0 && (
-          <p className="px-4 text-label text-faint">
-            {count(shown.length)} of {count(items.length)} shown.{" "}
-            <button type="button" onClick={clear} className="rounded-sm text-accent-text ui-focus hover:underline">
-              Show all
-            </button>
-          </p>
-        )}
-      </div>
-      {detail && (
-        <section id={detailId} aria-label={detail.label} data-scroll-inside className="max-h-full min-h-0 self-start overflow-y-auto rounded-xl">
-          {detail.content}
-        </section>
-      )}
+      {detail && <DetailPage key={selected ?? detail.label} detail={detail} backLabel={backLabel} onBack={() => onSelect(null)} />}
     </div>
   );
 }

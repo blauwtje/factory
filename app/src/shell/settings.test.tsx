@@ -148,7 +148,7 @@ test("New leaves settings for a new session in the app sidebar", async () => {
 
 test("the sidebar swap slides only for a mouse click, never for the keyboard or the palette", async () => {
   render(<Shell projects={[]} claude={claude} />);
-  const column = () => screen.getByRole("complementary").parentElement!;
+  const column = () => [...screen.getByRole("complementary").querySelectorAll<HTMLElement>("[data-pane]")].find((pane) => !pane.hasAttribute("inert"))!;
   fireEvent.click(screen.getByRole("button", { name: "Settings" }), { detail: 1 });
   expect(column().dataset.slide).toBe("in-right");
   fireEvent.click(screen.getByRole("button", { name: "New" }), { detail: 1 });
@@ -166,7 +166,7 @@ test("the sidebar swap slides only for a mouse click, never for the keyboard or 
 
 test("leaving settings through the palette does not replay the slide on the app sidebar", async () => {
   render(<Shell projects={[]} claude={claude} />);
-  const column = () => screen.getByRole("complementary").parentElement!;
+  const column = () => [...screen.getByRole("complementary").querySelectorAll<HTMLElement>("[data-pane]")].find((pane) => !pane.hasAttribute("inert"))!;
   fireEvent.click(screen.getByRole("button", { name: "Settings" }), { detail: 1 });
   expect(column().dataset.slide).toBe("in-right");
   fireEvent.keyDown(document, { key: "k", metaKey: true });

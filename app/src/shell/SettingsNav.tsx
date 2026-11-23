@@ -1,7 +1,7 @@
 import { Blocks, Bot, Brain, ChartColumn, Gauge, Info, LayoutDashboard, MessagesSquare, Puzzle, ScrollText, Server, ShieldCheck, SlidersHorizontal, SquarePen, SquareTerminal, Webhook, type LucideIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { NavList, SidebarHeader } from "./Sidebar";
+import { NavList } from "./Sidebar";
 import type { SettingsSection } from "./types";
 
 export type SectionGroup = "settings" | "customize";
@@ -31,19 +31,15 @@ type Props = {
   section: SettingsSection;
   onSection: (section: SettingsSection) => void;
   onNew: (event: MouseEvent<HTMLButtonElement>) => void;
-  onCollapse: () => void;
 };
 
-export function SettingsNav({ group, section, onSection, onNew, onCollapse }: Props) {
+export function SettingsNav({ group, section, onSection, onNew }: Props) {
   const actions = SECTIONS.filter((entry) => entry.group === group).map(({ id, label, icon }) => ({ label, icon, onClick: () => onSection(id), active: id === section }));
   return (
-    <aside className="flex h-full min-w-60 flex-col">
-      <SidebarHeader onCollapse={onCollapse} />
-      <ScrollArea className="flex-1">
-        <nav aria-label={NAV_LABELS[group]} className="flex flex-col">
-          <NavList actions={[{ label: "New", icon: SquarePen, onClick: onNew }, ...actions]} />
-        </nav>
-      </ScrollArea>
-    </aside>
+    <ScrollArea className="flex-1">
+      <nav aria-label={NAV_LABELS[group]} className="flex flex-col">
+        <NavList actions={[{ label: "New", icon: SquarePen, onClick: onNew }, ...actions]} />
+      </nav>
+    </ScrollArea>
   );
 }

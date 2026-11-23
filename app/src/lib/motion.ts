@@ -9,6 +9,7 @@ export const duration = {
   tooltip: 0.15,
   menu: 0.18,
   panel: 0.22,
+  swap: 0.09,
   dialog: 0.22,
   toast: 0.4,
 } as const;

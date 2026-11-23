@@ -104,7 +104,7 @@ test("a new user skill is created from the form with Cmd+S, then listed, selecte
   await waitFor(() => expect(names()).toEqual(["release-notes", "tidy"]));
   const region = screen.getByRole("region", { name: "release-notes" });
   expect(within(region).getByRole("button", { name: "Edit" })).not.toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "release-notes" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back to Skills" }));
 });
 
 test("This project is not offered as a place for a new item while the picker shows All", async () => {
@@ -143,7 +143,7 @@ test("a row's own Delete button asks first and then moves the item to the Trash"
   await waitFor(() => expect(names()).toEqual(["notes"]));
 });
 
-test("editing a user skill loads its draft, saves the change under its old path and returns focus to the row", async () => {
+test("editing a user skill loads its draft, saves the change under its old path and returns focus to its page", async () => {
   const tidy = skill("tidy", { description: "Tidies a diff" });
   items = [tidy];
   serve({ [tidy.path]: { name: "tidy", description: "Tidies a diff", paths: [], body: "Remove dead code." } });
@@ -165,7 +165,7 @@ test("editing a user skill loads its draft, saves the change under its old path 
   ]);
   await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
   expect(within(screen.getByRole("region", { name: "tidy" })).getByText("Tidies a diff before review")).not.toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "tidy" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back to Skills" }));
 });
 
 test("Esc with unsaved changes asks to discard them, and without changes closes the form", async () => {
@@ -186,7 +186,7 @@ test("Esc with unsaved changes asks to discard them, and without changes closes 
   fireEvent.keyDown(field("Body"), { key: "Escape" });
   expect(screen.queryByLabelText("Body")).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "tidy" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back to Skills" }));
 });
 
 test("deleting a user skill asks first, moves it to the Trash and drops it from the list", async () => {
@@ -206,17 +206,19 @@ test("deleting a user skill asks first, moves it to the Trash and drops it from 
   expect(screen.queryByRole("region", { name: "tidy" })).toBeNull();
 });
 
-test("deleting one row keeps another row's open detail", async () => {
+test("a row opens its own page in place of the list, and Esc goes back to the list with focus on that row", async () => {
   items = [skill("tidy"), skill("notes")];
   serve();
   await open();
+  screen.getByRole("button", { name: "notes" }).focus();
   fireEvent.click(screen.getByRole("button", { name: "notes" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete tidy" }));
-  await act(async () => {
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
-  });
-  await waitFor(() => expect(names()).toEqual(["notes"]));
   expect(screen.getByRole("region", { name: "notes" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "tidy" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back to Skills" }));
+  (document.activeElement as HTMLElement).blur();
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(screen.queryByRole("region", { name: "notes" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "notes" }));
 });
 
 test("a row's Delete that fails shows why", async () => {
@@ -252,6 +254,7 @@ test("a Factory or plugin item says where it comes from and offers no Edit or De
   await open();
   fireEvent.click(screen.getByRole("button", { name: "review" }));
   expect(within(screen.getByRole("region", { name: "review" })).getByText("Read-only, from Factory")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Back to Skills" }));
   fireEvent.click(screen.getByRole("button", { name: "lint" }));
   const region = within(screen.getByRole("region", { name: "lint" }));
   expect(region.getByText("Read-only, from kit")).not.toBeNull();

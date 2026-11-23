@@ -67,6 +67,7 @@ test("Reset to default asks first, then resets the role", async () => {
 test("a Factory agent opens in the editor and an agent from elsewhere opens read-only", async () => {
   await openAgent("reviewer");
   expect(within(screen.getByRole("region", { name: "reviewer" })).getByRole("textbox", { name: "Description" })).toHaveProperty("value", "Reads the diff");
+  fireEvent.click(screen.getByRole("button", { name: "Back to Agents" }));
   fireEvent.click(screen.getByRole("button", { name: "scout" }));
   const detail = screen.getByRole("region", { name: "scout" });
   expect(within(detail).getByText("~/.claude/agents/scout.md")).not.toBeNull();
