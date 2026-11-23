@@ -6,7 +6,7 @@ import { SECTIONS } from "@/shell/SettingsNav";
 import { relativeTime } from "@/shell/time";
 import type { SettingsSection } from "@/shell/types";
 import { count, formatTokens } from "@/stats/format";
-import { inContext, inSection, KIND_ORDER, KINDS, PAGE_KINDS, tokenText } from "./kinds";
+import { inContext, inSection, KIND_ORDER, KINDS, PAGE_KINDS, tokenText, VERDICT_LABELS } from "./kinds";
 
 const TOP = 5;
 const RANKED: CustomizeKind[] = ["skill", "command", "agent", "mcp"];
@@ -100,6 +100,7 @@ function KindCard({ kind, items, onOpen }: { kind: CustomizeKind; items: Customi
   const tokens = sum(items, loaded);
   const unknown = tokens === 0 && items.some((item) => item.loaded_tokens === null);
   const color = KINDS[kind].color;
+  const off = items.filter((item) => !item.enabled).length;
   return (
     <button type="button" onClick={onOpen} className={cn(cardClass, "flex flex-col gap-2 p-3 text-left ui-focus transition-[border-color,background-color] duration-(--duration-press) hover:border-control")}>
       <span className="flex items-center gap-2 text-label text-muted">
@@ -112,12 +113,23 @@ function KindCard({ kind, items, onOpen }: { kind: CustomizeKind; items: Customi
         {unknown ? "—" : tokenText(tokens, isExact(items))}
         <span className="text-label font-normal text-muted">tokens</span>
       </span>
-      <span className="text-label tabular-nums text-muted">{count(sum(items, (item) => item.uses))} uses in 30 days</span>
+      <span className="flex gap-2 text-label tabular-nums text-muted">
+        {count(sum(items, (item) => item.uses))} uses in 30 days
+        {off > 0 && <span className="ml-auto text-faint">{count(off)} off</span>}
+      </span>
     </button>
   );
 }
 
-function ShortList({ title, items, value }: { title: string; items: CustomizeItem[]; value: (item: CustomizeItem) => string }) {
+const problem = (item: CustomizeItem) => {
+  if (item.scan && item.scan.verdict !== "pass") return VERDICT_LABELS[item.scan.verdict];
+  if (item.conflicts && item.conflicts.length > 0) return "Duplicate";
+  return null;
+};
+
+type ListProps = { title: string; items: CustomizeItem[]; value: (item: CustomizeItem) => string; onOpen: (item: CustomizeItem) => void };
+
+function ShortList({ title, items, value, onOpen }: ListProps) {
   return (
     <Panel title={title}>
       {items.length === 0 ? (
@@ -125,10 +137,12 @@ function ShortList({ title, items, value }: { title: string; items: CustomizeIte
       ) : (
         <ul aria-label={title} className="divide-y divide-rule">
           {items.map((item) => (
-            <li key={item.id} className="flex h-9 items-center gap-3 px-4 text-body">
-              <span className="min-w-0 truncate text-ink">{item.name}</span>
-              <span className="shrink-0 text-label text-muted">{KINDS[item.kind].noun}</span>
-              <span className="ml-auto shrink-0 tabular-nums text-ink">{value(item)}</span>
+            <li key={item.id}>
+              <button type="button" onClick={() => onOpen(item)} className="flex h-9 w-full items-center gap-3 px-4 text-left text-body ui-focus hover:bg-active">
+                <span className="min-w-0 truncate text-ink">{item.name}</span>
+                <span className="shrink-0 text-label text-muted">{KINDS[item.kind].noun}</span>
+                <span className="ml-auto shrink-0 tabular-nums text-ink">{value(item)}</span>
+              </button>
             </li>
           ))}
         </ul>
@@ -141,8 +155,11 @@ export function Overview({ data, onSection }: { data: Customize; onSection: (sec
   const items = inContext(data.items);
   const mostUsed = items.filter((item) => RANKED.includes(item.kind) && item.uses > 0).sort((a, b) => b.uses - a.uses).slice(0, TOP);
   const unused = items.filter((item) => loaded(item) > 0 && item.uses === 0).sort((a, b) => loaded(b) - loaded(a)).slice(0, TOP);
+  const flagged = data.items.filter(problem);
+  const open = (item: CustomizeItem) => onSection(KINDS[item.kind].section);
   return (
     <div className="flex flex-col gap-4">
+      {flagged.length > 0 && <ShortList title="Needs a look" items={flagged} value={(item) => problem(item) ?? ""} onOpen={open} />}
       <ContextBar data={data} items={items} />
       <div className="@container">
         <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
@@ -152,8 +169,8 @@ export function Overview({ data, onSection }: { data: Customize; onSection: (sec
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <ShortList title="Most used" items={mostUsed} value={(item) => count(item.uses)} />
-        <ShortList title="Loaded but unused in 30 days" items={unused} value={(item) => tokenText(item.loaded_tokens, item.exact)} />
+        <ShortList title="Most used" items={mostUsed} value={(item) => count(item.uses)} onOpen={open} />
+        <ShortList title="Loaded but unused in 30 days" items={unused} value={(item) => tokenText(item.loaded_tokens, item.exact)} onOpen={open} />
       </div>
     </div>
   );

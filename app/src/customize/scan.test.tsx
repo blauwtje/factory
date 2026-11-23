@@ -28,7 +28,7 @@ const unscanned = item("legacy");
 
 afterEach(cleanup);
 
-const rowOf = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) }).closest("tr")!;
+const rowOf = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) }).closest("li")!;
 
 test("a row shows a Risk or Review badge and none for a passing or unscanned item", () => {
   render(<ItemBrowser items={[risky, reviewed, clean, unscanned]} selected={null} onSelect={() => {}} detail={null} empty="" />);
@@ -36,6 +36,13 @@ test("a row shows a Risk or Review badge and none for a passing or unscanned ite
   expect(within(rowOf("notes")).getByText("Review")).toBeTruthy();
   expect(within(rowOf("tidy")).queryByText(/^(Risk|Review)$/)).toBeNull();
   expect(within(rowOf("legacy")).queryByText(/^(Risk|Review)$/)).toBeNull();
+});
+
+test("a row's badges are read out with its description", () => {
+  render(<ItemBrowser items={[risky, clean]} selected={null} onSelect={() => {}} detail={null} empty="" />);
+  const button = screen.getByRole("button", { name: "fetcher" });
+  const described = (button.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent).join(" ");
+  expect(described).toContain("Risk");
 });
 
 test("the detail lists the findings and the heuristic note for a flagged item", () => {

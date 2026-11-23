@@ -38,9 +38,10 @@ function serve(answers: Record<string, unknown>) {
 }
 
 const callsTo = (command: string) => calls.filter(([cmd]) => cmd === command).map(([, args]) => args);
-const itemRows = () => screen.getAllByRole("row").filter((row) => within(row).queryAllByRole("cell").length > 0);
-const names = () => itemRows().map((row) => within(row).getAllByRole("cell")[0].querySelector("button")?.textContent);
-const tableLines = () => screen.getAllByRole("row").slice(1).map((row) => (within(row).queryAllByRole("cell").length > 0 ? row.querySelector("td button")?.textContent : `# ${row.textContent}`));
+const nameOf = (button: Element) => document.getElementById(button.getAttribute("aria-labelledby")!)?.textContent;
+const names = () => [...document.querySelectorAll("[data-item]")].map(nameOf);
+const rowOf = (name: string) => screen.getByRole("button", { name }).closest("li")!;
+const groupLines = () => screen.getAllByRole("group").filter((group) => group.querySelector("[data-item]")).flatMap((group) => [`# ${group.getAttribute("aria-label")}`, ...[...group.querySelectorAll("[data-item]")].map(nameOf)]);
 
 afterEach(async () => {
   cleanup();
@@ -54,29 +55,55 @@ async function open(section: SettingsSection) {
   await act(async () => {});
 }
 
-test("a kind page lists only its kind with source, invocation and tokens, marks estimates with ~ and opens a row's details", async () => {
+test("a kind page lists only its kind, most used first, with uses and tokens, marks estimates with ~ and opens a row's details", async () => {
   serve({ list_customize: listed([deploy, scout, review]) });
   await open("skills");
-  expect(names()).toEqual(["review", "deploy"]);
-  const row = screen.getByRole("row", { name: /deploy/ });
-  expect(within(row).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["deploy", "Factory", "Only /deploy", "~25", "~300", "30", "Never", ""]);
-  expect(within(screen.getByRole("row", { name: /review/ })).getAllByRole("cell")[3].textContent).toBe("40");
-  fireEvent.click(within(row).getByRole("button", { name: /deploy/ }));
-  expect(within(screen.getByRole("region", { name: "deploy" })).getByText("~/kit/skills/deploy/SKILL.md")).not.toBeNull();
+  expect(names()).toEqual(["deploy", "review"]);
+  const row = rowOf("deploy");
+  expect(within(row).getByText("30 uses, last Never")).not.toBeNull();
+  expect(within(row).getByText("~25")).not.toBeNull();
+  expect(within(rowOf("review")).getByText("40")).not.toBeNull();
+  fireEvent.click(within(row).getByRole("button", { name: "deploy" }));
+  const detail = within(screen.getByRole("region", { name: "deploy" }));
+  expect(detail.getByText("~/kit/skills/deploy/SKILL.md")).not.toBeNull();
+  expect(detail.getByText("Only /deploy")).not.toBeNull();
   expect(callsTo("measure_customize")).toEqual([]);
 });
 
-test("sorting by uses puts the most used item first", async () => {
+test("the chosen sort is remembered for the page", async () => {
   serve({ list_customize: listed([review, deploy]) });
   await open("skills");
-  fireEvent.click(screen.getByRole("button", { name: "Uses (30d)" }));
+  fireEvent.click(screen.getByRole("button", { name: "Largest" }));
+  expect(names()).toEqual(["review", "deploy"]);
+  cleanup();
+  await open("skills");
+  expect(names()).toEqual(["review", "deploy"]);
+});
+
+test("each page keeps its own sort when you switch pages", async () => {
+  serve({ list_customize: listed([review, deploy, item({ kind: "rule", name: "testing" }), item({ kind: "rule", name: "style" })]) });
+  const view = render(<CustomizePage section="skills" project="~/code/app" onProject={() => {}} onSection={() => {}} />);
+  await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Largest" }));
+  view.rerender(<CustomizePage section="rules" project="~/code/app" onProject={() => {}} onSection={() => {}} />);
+  await act(async () => {});
+  expect(screen.queryByRole("button", { name: "Most used", pressed: true })).not.toBeNull();
+  expect(readPersisted("customize-view:rule")).toBeNull();
+});
+
+test("a filter keeps only the items that are off, and Show all brings the rest back", async () => {
+  serve({ list_customize: listed([review, { ...deploy, enabled: false }]) });
+  await open("skills");
+  fireEvent.click(screen.getByRole("button", { name: "Off" }));
+  expect(names()).toEqual(["deploy"]);
+  fireEvent.click(screen.getByRole("button", { name: "Show all" }));
   expect(names()).toEqual(["deploy", "review"]);
 });
 
 test("an estimated list is measured once and then shows the measured tokens", async () => {
   serve({ list_customize: listed([deploy], false), measure_customize: listed([{ ...deploy, loaded_tokens: 31, exact: true }]) });
   await open("skills");
-  await waitFor(() => expect(within(screen.getByRole("row", { name: /deploy/ })).getAllByRole("cell")[3].textContent).toBe("31"));
+  await waitFor(() => expect(within(rowOf("deploy")).getByText("31")).not.toBeNull());
   expect(callsTo("measure_customize")).toEqual([{ project_path: "~/code/app" }]);
 });
 
@@ -203,8 +230,8 @@ test("commands sit on the Skills page with a Command badge and count on the Skil
   serve({ list_customize: listed([review, standup]) });
   await open("skills");
   expect(names()).toEqual(["review", "standup"]);
-  expect(within(screen.getByRole("row", { name: /standup/ })).getByText("Command")).not.toBeNull();
-  expect(within(screen.getByRole("row", { name: /review/ })).queryByText("Command")).toBeNull();
+  expect(within(rowOf("standup")).getByText("Command")).not.toBeNull();
+  expect(within(rowOf("review")).queryByText("Command")).toBeNull();
   cleanup();
   await open("overview");
   const card = screen.getByRole("button", { name: /^Skills/ });
@@ -214,27 +241,15 @@ test("commands sit on the Skills page with a Command badge and count on the Skil
 
 const plugged = (name: string, plugin: string, patch: Partial<CustomizeItem> = {}) => item({ kind: "skill", name, source: "plugin", plugin, ...patch });
 
-test("a table groups its rows by source, project first and plugins by name with their origin, and sorts inside each group", async () => {
+test("a list groups its items by source, project first and plugins by name with their origin, and sorts inside each group", async () => {
   const mine = item({ kind: "skill", name: "mine", source: "user", uses: 1 });
   const local = item({ kind: "skill", name: "local", source: "project", uses: 2 });
   const shipped = plugged("shipped", "workflow", { origin: "github.com/acme/workflow", uses: 9 });
   const linted = plugged("linted", "lint-kit", { origin: "~/code/lint-kit", uses: 1 });
   serve({ list_customize: listed([shipped, mine, review, linted, local, deploy]) });
   await open("skills");
-  fireEvent.click(screen.getByRole("button", { name: "Uses (30d)" }));
-  expect(tableLines()).toEqual([
-    "# Project",
-    "local",
-    "# User",
-    "mine",
-    "# Factory",
-    "deploy",
-    "review",
-    "# Plugin · lint-kit~/code/lint-kit",
-    "linted",
-    "# Plugin · workflowgithub.com/acme/workflow",
-    "shipped",
-  ]);
+  expect(groupLines()).toEqual(["# This project", "local", "# All your projects", "mine", "# Factory", "deploy", "review", "# Plugin · lint-kit", "linted", "# Plugin · workflow", "shipped"]);
+  expect(within(screen.getByRole("group", { name: "Plugin · workflow" })).getByText("github.com/acme/workflow")).not.toBeNull();
 });
 
 test("search keeps the rows whose name or description matches, ignoring case", async () => {
@@ -246,18 +261,14 @@ test("search keeps the rows whose name or description matches, ignoring case", a
   expect(names()).toEqual(["notes"]);
 });
 
-test("the plugins table shows where a plugin comes from and its scope, and the detail its version and install path", async () => {
+test("the plugins list shows where a plugin comes from and its scope, and the detail its version and install path", async () => {
   const workflow = item({ kind: "plugin", name: "workflow", source: "plugin", plugin: "workflow", origin: "github.com/acme/workflow", scope: "user", version: "1.4.0", path: "~/.claude/plugins/cache/workflow" });
   const kit = item({ kind: "plugin", name: "kit", source: "plugin", plugin: "kit", origin: "~/code/kit", scope: "project", version: null, path: "~/code/kit" });
   serve({ list_customize: listed([workflow, kit]) });
   await open("plugins");
-  const headers = screen.getAllByRole("columnheader").map((header) => header.textContent);
-  expect(headers.slice(0, 3)).toEqual(["Name", "From", "Scope"]);
-  expect(within(screen.getByRole("row", { name: /workflow/ })).getAllByRole("cell").slice(1, 3).map((cell) => cell.textContent)).toEqual(["github.com/acme/workflow", "User"]);
-  const scope = within(screen.getByRole("row", { name: /^kit/ })).getAllByRole("cell")[2];
-  expect(scope.textContent).toBe("Project · app");
-  expect(scope.querySelector("[title]")?.getAttribute("title")).toBe("~/code/app");
-  fireEvent.click(screen.getByRole("button", { name: /^workflow/ }));
+  expect(within(rowOf("workflow")).getByText("github.com/acme/workflow · User · Not used in 30 days")).not.toBeNull();
+  expect(within(rowOf("kit")).getByText("~/code/kit · Project · app · Not used in 30 days")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "workflow" }));
   const detail = within(screen.getByRole("region", { name: "workflow" }));
   expect(detail.getByText("github.com/acme/workflow")).not.toBeNull();
   expect(detail.getByText("1.4.0")).not.toBeNull();

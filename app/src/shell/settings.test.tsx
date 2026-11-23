@@ -213,9 +213,8 @@ test("the Agents page lists each agent, opens one in the editor, and hides other
   await openCustomize();
   fireEvent.click(within(customizeNav()!).getByRole("button", { name: "Agents" }));
   await act(async () => {});
-  const rows = screen.getAllByRole("row").filter((row) => within(row).queryAllByRole("cell").length > 0);
-  expect(screen.getByRole("columnheader", { name: "Factory" })).toBeTruthy();
-  expect(rows.map((row) => within(row).getAllByRole("cell")[0].querySelector("button")?.textContent)).toEqual(["builder", "orchestrator", "reviewer"]);
+  const factory = screen.getByRole("group", { name: "Factory" });
+  expect([...factory.querySelectorAll("[data-item]")].map((button) => document.getElementById(button.getAttribute("aria-labelledby")!)?.textContent)).toEqual(["builder", "orchestrator", "reviewer"]);
   fireEvent.click(screen.getByRole("button", { name: "reviewer" }));
   expect(within(screen.getByRole("region", { name: "reviewer" })).getByRole("textbox", { name: "Description" })).toHaveProperty("value", "Reads the diff");
   expect(screen.queryByText("~/.local/bin/claude")).toBeNull();

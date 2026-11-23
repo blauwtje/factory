@@ -1,108 +1,175 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { Fragment, useId, useState, type ReactNode } from "react";
+import { Lock, Search } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { CustomizeItem, CustomizeSource } from "@/ipc";
+import { readPersisted, writePersisted } from "@/lib/persisted";
 import { cn } from "@/lib/utils";
 import { cardClass } from "@/settings/parts";
 import { count } from "@/stats/format";
-import { VERDICT_LABELS, lastUsedText, sourceLabel, tokenText } from "./kinds";
+import { isOwn, KINDS, lastUsedText, sourceLabel, tokenText, VERDICT_LABELS } from "./kinds";
 
-type SortKey = "loaded" | "uses";
-type Sort = { key: SortKey; desc: boolean };
+type SortKey = "uses" | "loaded" | "name";
+type Filter = "all" | "on" | "off" | "own" | "unused";
+type View = { sort: SortKey; filter: Filter };
 
-const SORT_VALUE: Record<SortKey, (item: CustomizeItem) => number> = {
-  loaded: (item) => item.loaded_tokens ?? -1,
-  uses: (item) => item.uses,
+const DEFAULT_VIEW: View = { sort: "uses", filter: "all" };
+
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: "uses", label: "Most used" },
+  { value: "loaded", label: "Largest" },
+  { value: "name", label: "A–Z" },
+];
+
+const FILTERS: { value: Filter; label: string; keep: (item: CustomizeItem) => boolean }[] = [
+  { value: "all", label: "All", keep: () => true },
+  { value: "on", label: "On", keep: (item) => item.enabled },
+  { value: "off", label: "Off", keep: (item) => !item.enabled },
+  { value: "own", label: "Yours", keep: isOwn },
+  { value: "unused", label: "Unused", keep: (item) => item.uses === 0 },
+];
+
+const ORDER: Record<SortKey, (a: CustomizeItem, b: CustomizeItem) => number> = {
+  uses: (a, b) => b.uses - a.uses,
+  loaded: (a, b) => (b.loaded_tokens ?? -1) - (a.loaded_tokens ?? -1),
+  name: () => 0,
 };
 
-type Column = { label: string; numeric?: boolean; hide?: string; sort?: SortKey; cell: (item: CustomizeItem) => ReactNode };
-
-const COLUMNS: Column[] = [
-  { label: "Source", hide: "@max-md:hidden", cell: sourceLabel },
-  {
-    label: "Invoked",
-    hide: "@max-2xl:hidden",
-    cell: (item) => (
-      <span title={item.invocation} className="block max-w-52 truncate">
-        {item.invocation}
-      </span>
-    ),
-  },
-  { label: "Loaded", numeric: true, sort: "loaded", cell: (item) => tokenText(item.loaded_tokens, item.exact) },
-  { label: "On use", numeric: true, hide: "@max-xl:hidden", cell: (item) => tokenText(item.use_tokens, false) },
-  { label: "Uses (30d)", numeric: true, sort: "uses", cell: (item) => count(item.uses) },
-  { label: "Last used", numeric: true, hide: "@max-3xl:hidden", cell: (item) => lastUsedText(item.last_used) },
-];
+const sorted = (items: CustomizeItem[], key: SortKey) => [...items].sort((a, b) => ORDER[key](a, b) || a.name.localeCompare(b.name));
 
 const SCOPE_LABELS: Record<NonNullable<CustomizeItem["scope"]>, string> = { user: "User", project: "Project", local: "Local" };
 
 const folderName = (path: string) => path.split("/").filter(Boolean).at(-1) ?? path;
 
-function ScopeText({ scope, projectPath }: { scope: CustomizeItem["scope"]; projectPath: string | null }) {
-  if (!scope) return "—";
+const scopeText = (scope: CustomizeItem["scope"], projectPath: string | null) => {
+  if (!scope) return null;
   if (scope === "user" || !projectPath) return SCOPE_LABELS[scope];
-  return (
-    <span title={projectPath}>
-      {SCOPE_LABELS[scope]} · {folderName(projectPath)}
-    </span>
-  );
-}
-
-export const pluginColumns = (projectPath: string | null): Column[] => [
-  {
-    label: "From",
-    hide: "@max-md:hidden",
-    cell: (item) => (
-      <span title={item.origin ?? undefined} className="block max-w-52 truncate">
-        {item.origin ?? "—"}
-      </span>
-    ),
-  },
-  { label: "Scope", cell: (item) => <ScopeText scope={item.scope} projectPath={projectPath} /> },
-  ...COLUMNS.filter((column) => column.label !== "Source"),
-];
+  return `${SCOPE_LABELS[scope]} · ${folderName(projectPath)}`;
+};
 
 const SOURCE_ORDER: Record<CustomizeSource, number> = { project: 0, user: 1, factory: 2, plugin: 3 };
+const GROUP_TITLES: Record<Exclude<CustomizeSource, "plugin">, string> = { project: "This project", user: "All your projects", factory: "Factory" };
 
-const groupLabel = (item: CustomizeItem) => (item.source === "plugin" ? `Plugin · ${sourceLabel(item)}` : sourceLabel(item));
+const groupTitle = (item: CustomizeItem) => (item.source === "plugin" ? `Plugin · ${sourceLabel(item)}` : GROUP_TITLES[item.source]);
 
-type Group = { label: string | null; origin: string | null; items: CustomizeItem[] };
+function groupHint(item: CustomizeItem, projectPath: string | null) {
+  if (item.source === "project") return projectPath ? `Only in ${folderName(projectPath)}. You can change these.` : "You can change these.";
+  if (item.source === "user") return "Every project. You can change these.";
+  if (item.source === "factory") return "Built into Factory.";
+  return item.origin ?? "Read-only";
+}
 
-function groupsOf(items: CustomizeItem[]): Group[] {
-  const ordered = [...items].sort((a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source] || groupLabel(a).localeCompare(groupLabel(b)));
-  return [...new Set(ordered.map(groupLabel))].map((label) => {
-    const members = ordered.filter((item) => groupLabel(item) === label);
-    return { label, origin: members[0].origin ?? null, items: members };
+type Group = { title: string | null; hint: string | null; items: CustomizeItem[] };
+
+function groupsOf(items: CustomizeItem[], projectPath: string | null): Group[] {
+  const ordered = [...items].sort((a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source] || groupTitle(a).localeCompare(groupTitle(b)));
+  return [...new Set(ordered.map(groupTitle))].map((title) => {
+    const members = ordered.filter((item) => groupTitle(item) === title);
+    return { title, hint: groupHint(members[0], projectPath), items: members };
   });
 }
 
 const matches = (item: CustomizeItem, query: string) => `${item.name}\n${item.description}`.toLowerCase().includes(query.toLowerCase());
 
-const sorted = (items: CustomizeItem[], { key, desc }: Sort) =>
-  [...items].sort((a, b) => (SORT_VALUE[key](b) - SORT_VALUE[key](a)) * (desc ? 1 : -1) || a.name.localeCompare(b.name));
+function useView(key: string) {
+  const storeKey = `customize-view:${key}`;
+  const [view, setView] = useState<View>(() => ({ ...DEFAULT_VIEW, ...readPersisted<View>(storeKey) }));
+  const change = (patch: Partial<View>) => {
+    const next = { ...view, ...patch };
+    setView(next);
+    writePersisted(storeKey, next);
+  };
+  return [view, change] as const;
+}
 
-function SortHeader({ column, sort, onSort }: { column: Column & { sort: SortKey }; sort: Sort; onSort: (sort: Sort) => void }) {
-  const active = sort.key === column.sort;
-  const Arrow = active && !sort.desc ? ArrowUp : ArrowDown;
+function useSlashFocus(id: string) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if ((event.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      const box = document.getElementById(id);
+      if (!box) return;
+      event.preventDefault();
+      box.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [id]);
+}
+
+function Badges({ item }: { item: CustomizeItem }) {
+  const verdict = item.scan?.verdict;
   return (
-    <button
-      type="button"
-      onClick={() => onSort({ key: column.sort, desc: active ? !sort.desc : true })}
-      className={cn("inline-flex items-center gap-1 rounded-sm ui-focus hover:text-ink", active && "text-ink")}
-    >
-      {column.label}
-      <Arrow aria-hidden className={cn("size-3", !active && "opacity-0")} />
-    </button>
+    <>
+      {item.kind === "command" && <Badge variant="secondary">Command</Badge>}
+      {verdict && verdict !== "pass" && <Badge variant={verdict === "risk" ? "failed" : "approval"}>{VERDICT_LABELS[verdict]}</Badge>}
+      {item.conflicts && item.conflicts.length > 0 && <Badge variant="outline">Duplicate</Badge>}
+      {!item.enabled && <Badge variant="outline">Off</Badge>}
+    </>
   );
 }
 
-const ariaSort = (column: Column, sort: Sort) => (column.sort ? (sort.key === column.sort ? (sort.desc ? "descending" : "ascending") : "none") : undefined);
+function usageText(item: CustomizeItem, projectPath: string | null) {
+  const used = item.uses > 0 ? `${count(item.uses)} ${item.uses === 1 ? "use" : "uses"}, last ${lastUsedText(item.last_used)}` : "Not used in 30 days";
+  if (item.kind !== "plugin") return used;
+  return [item.origin, scopeText(item.scope, projectPath), used].filter(Boolean).join(" · ");
+}
 
-function VerdictBadge({ item }: { item: CustomizeItem }) {
-  const verdict = item.scan?.verdict;
-  if (!verdict || verdict === "pass") return null;
-  return <Badge variant={verdict === "risk" ? "failed" : "waiting"}>{VERDICT_LABELS[verdict]}</Badge>;
+function Weight({ item, max }: { item: CustomizeItem; max: number }) {
+  const tokens = item.loaded_tokens ?? 0;
+  const share = max > 0 && tokens > 0 ? Math.max(0.06, tokens / max) : 0;
+  return (
+    <span className="flex w-16 shrink-0 flex-col items-end gap-1.5">
+      <span className="text-label tabular-nums text-muted">{tokenText(item.loaded_tokens, item.exact)}</span>
+      <span aria-hidden className="h-1 w-full overflow-hidden rounded-full bg-active">
+        <span data-weight className="block h-full rounded-full" style={{ width: `${share * 100}%`, background: KINDS[item.kind].color ?? "var(--chart-other)" }} />
+      </span>
+    </span>
+  );
+}
+
+type RowProps = { item: CustomizeItem; open: boolean; controls: string; max: number; projectPath: string | null; end: ReactNode; endWidth: boolean; onSelect: (id: string | null) => void };
+
+function ItemRow({ item, open, controls, max, projectPath, end, endWidth, onSelect }: RowProps) {
+  const nameId = useId();
+  const descriptionId = useId();
+  const badgesId = useId();
+  return (
+    <li data-selected={open || undefined} className="relative flex items-center gap-3 px-4 py-2.5 transition-colors duration-(--duration-press) hover:bg-active/40 data-[selected]:bg-active">
+      <button
+        type="button"
+        data-item={item.id}
+        aria-expanded={open}
+        aria-controls={open ? controls : undefined}
+        aria-labelledby={nameId}
+        aria-describedby={item.description ? `${badgesId} ${descriptionId}` : badgesId}
+        onClick={() => onSelect(open ? null : item.id)}
+        className="flex min-w-0 flex-1 items-center gap-4 rounded-sm text-left ui-focus after:absolute after:inset-0"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <span id={nameId} className={cn("min-w-0 truncate text-body font-medium", item.enabled ? "text-ink" : "text-muted")}>
+              {item.name}
+            </span>
+            <span id={badgesId} className="contents">
+              <Badges item={item} />
+            </span>
+          </span>
+          {item.description && (
+            <span id={descriptionId} className="truncate text-label text-muted">
+              {item.description}
+            </span>
+          )}
+          <span className="truncate text-caption tabular-nums text-faint">{usageText(item, projectPath)}</span>
+        </span>
+        <Weight item={item} max={max} />
+      </button>
+      {endWidth && <div className="relative z-10 flex w-16 shrink-0 items-center justify-end gap-0.5">{end}</div>}
+    </li>
+  );
 }
 
 export type Detail = { label: string; wide?: boolean; content: ReactNode };
@@ -113,131 +180,147 @@ export function focusRow(id: string) {
   return button !== undefined;
 }
 
+export function ReadOnlyMark({ item }: { item: CustomizeItem }) {
+  return (
+    <span title={`Read-only, from ${sourceLabel(item)}`} className="flex size-7 items-center justify-center text-faint">
+      <Lock aria-label={`${item.name} is read-only`} className="size-3.5" />
+    </span>
+  );
+}
+
 type Props = {
   items: CustomizeItem[];
   selected: string | null;
   onSelect: (id: string | null) => void;
   detail: Detail | null;
   empty: string;
+  viewKey?: string;
+  projectPath?: string | null;
   searchLabel?: string;
-  columns?: Column[];
   grouped?: boolean;
-  trailing?: (item: CustomizeItem) => ReactNode;
+  rowEnd?: (item: CustomizeItem) => ReactNode;
   actions?: ReactNode;
 };
 
-export function ItemBrowser({ items, selected, onSelect, detail, empty, searchLabel = "Search", columns = COLUMNS, grouped, trailing, actions }: Props) {
-  const [sort, setSort] = useState<Sort>({ key: "loaded", desc: true });
+export function ItemBrowser({ items, selected, onSelect, detail, empty, viewKey = "default", projectPath = null, searchLabel = "Search", grouped, rowEnd, actions }: Props) {
+  const [view, setView] = useView(viewKey);
   const [query, setQuery] = useState("");
   const detailId = useId();
-  const cellClass = "px-3 py-2 align-middle";
-  const shown = items.filter((item) => matches(item, query.trim()));
-  const groups: Group[] = grouped ? groupsOf(shown) : [{ label: null, origin: null, items: shown }];
-  const message = items.length === 0 ? empty : shown.length === 0 ? `Nothing matches “${query.trim()}”.` : null;
+  const searchId = useId();
+  useSlashFocus(searchId);
+  const filters = FILTERS.filter(({ value, keep }) => {
+    const kept = items.filter(keep).length;
+    return value === "all" || (kept > 0 && kept < items.length);
+  });
+  const filter = filters.find((entry) => entry.value === view.filter) ?? FILTERS[0];
+  const shown = sorted(
+    items.filter((item) => filter.keep(item) && matches(item, query.trim())),
+    view.sort,
+  );
+  const groups: Group[] = grouped ? groupsOf(shown, projectPath) : [{ title: null, hint: null, items: shown }];
+  const max = Math.max(0, ...items.map((item) => item.loaded_tokens ?? 0));
+  const endWidth = rowEnd !== undefined && items.some((item) => rowEnd(item));
+  const narrowed = query.trim() !== "" || filter.value !== "all";
 
-  const row = (item: CustomizeItem) => {
-    const open = item.id === selected;
-    const end = trailing?.(item);
-    return (
-      <tr
-        key={item.id}
-        data-selected={open || undefined}
-        onClick={() => onSelect(open ? null : item.id)}
-        className="cursor-default transition-colors duration-(--duration-press) hover:bg-active/50 data-[selected]:bg-active [&:not(:first-child)>td]:border-t [&>td]:border-rule"
-      >
-        <td className="w-full max-w-0 py-2 pl-4 pr-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              data-item={item.id}
-              aria-expanded={open}
-              aria-controls={open ? detailId : undefined}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelect(open ? null : item.id);
-              }}
-              className={cn("min-w-0 truncate rounded-sm text-left font-medium ui-focus", item.enabled ? "text-ink" : "text-muted")}
-            >
-              {item.name}
-            </button>
-            {item.kind === "command" && <Badge variant="secondary">Command</Badge>}
-            <VerdictBadge item={item} />
-            {item.conflicts && item.conflicts.length > 0 && <Badge variant="outline">Duplicate</Badge>}
-            {!item.enabled && !end && <Badge variant="outline">Off</Badge>}
+  const clear = () => {
+    setQuery("");
+    setView({ filter: "all" });
+  };
+
+  const list = () => {
+    if (items.length === 0) {
+      return (
+        <div className={cn(cardClass, "flex flex-col items-start gap-3 px-5 py-6")}>
+          <p className="text-body text-pretty text-muted">{empty}</p>
+        </div>
+      );
+    }
+    if (shown.length === 0) {
+      return (
+        <div className={cn(cardClass, "flex flex-col items-start gap-3 px-5 py-6")}>
+          <p className="text-body text-pretty text-muted">{query.trim() ? `Nothing matches “${query.trim()}”.` : "Nothing to show with this filter."}</p>
+          <Button variant="outline" size="sm" onClick={clear}>
+            Show all
+          </Button>
+        </div>
+      );
+    }
+    return groups.map((group) => (
+      <div key={group.title ?? ""} role="group" aria-label={group.title ?? "Items"} className="flex flex-col gap-1.5">
+        <div className="flex items-end gap-3 px-4">
+          <div className="flex min-w-0 flex-1 items-baseline gap-2">
+            {group.title && <h4 className="shrink-0 text-label font-medium text-ink">{group.title}</h4>}
+            {group.hint && <span className="min-w-0 truncate text-label text-faint">{group.hint}</span>}
           </div>
-          {item.description && <p className="truncate text-label text-muted">{item.description}</p>}
-        </td>
-        {columns.map((column) => (
-          <td key={column.label} className={cn(cellClass, "whitespace-nowrap", column.numeric ? "text-right tabular-nums text-ink" : "text-muted", column.hide)}>
-            {column.cell(item)}
-          </td>
-        ))}
-        {trailing && (
-          <td className="py-2 pl-3 pr-4" onClick={(event) => event.stopPropagation()}>
-            {end}
-          </td>
-        )}
-      </tr>
-    );
+          <span className="w-16 shrink-0 text-right text-caption text-faint">At start</span>
+          {endWidth && <span aria-hidden className="w-16 shrink-0" />}
+        </div>
+        <ul aria-label={group.title ?? searchLabel} className={cn(cardClass, "divide-y divide-rule overflow-hidden p-0")}>
+          {group.items.map((item) => (
+            <ItemRow key={item.id} item={item} open={item.id === selected} controls={detailId} max={max} projectPath={projectPath} end={rowEnd?.(item) ?? null} endWidth={endWidth} onSelect={onSelect} />
+          ))}
+        </ul>
+      </div>
+    ));
   };
 
   return (
-    <div className={cn("grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4", detail && (detail.wide ? "grid-cols-[minmax(0,1fr)_28rem]" : "grid-cols-[minmax(0,1fr)_20rem]"))}>
-      <div className="flex min-h-0 flex-col gap-3">
-        {(items.length > 0 || actions) && (
-          <div className="flex items-center gap-3">
-            {items.length > 0 && <Input type="search" aria-label={searchLabel} placeholder="Search by name or description" value={query} onChange={(event) => setQuery(event.target.value)} className="max-w-72" />}
-            {actions && <div className="ml-auto">{actions}</div>}
-          </div>
-        )}
-        <div data-scroll-inside className={cn(cardClass, "@container min-h-0 flex-1 overflow-auto p-0")}>
-          {message ? (
-            <p className="px-4 py-6 text-body text-pretty text-muted">{message}</p>
-          ) : (
-            <table className="w-full border-separate border-spacing-0 text-body">
-              <thead>
-                <tr className="text-left text-label text-muted">
-                  <th scope="col" className="sticky top-0 z-10 bg-raised py-2 pl-4 pr-3 font-medium shadow-[inset_0_-1px_0_var(--rule)]">
-                    Name
-                  </th>
-                  {columns.map((column) => (
-                    <th
-                      key={column.label}
-                      scope="col"
-                      aria-sort={ariaSort(column, sort)}
-                      className={cn("sticky top-0 z-10 whitespace-nowrap bg-raised py-2 font-medium shadow-[inset_0_-1px_0_var(--rule)]", cellClass, column.numeric && "text-right", column.hide)}
-                    >
-                      {column.sort ? <SortHeader column={{ ...column, sort: column.sort }} sort={sort} onSort={setSort} /> : column.label}
-                    </th>
-                  ))}
-                  {trailing && (
-                    <th scope="col" className="sticky top-0 z-10 bg-raised py-2 pl-3 pr-4 shadow-[inset_0_-1px_0_var(--rule)]">
-                      <span className="sr-only">On</span>
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((group) => (
-                  <Fragment key={group.label ?? ""}>
-                    {group.label && (
-                      <tr className="[&:first-child>th]:pt-2">
-                        <th scope="colgroup" colSpan={columns.length + (trailing ? 2 : 1)} className="px-4 pb-1.5 pt-5 text-left text-label font-medium text-muted">
-                          {group.label}
-                          {group.origin && <span className="ml-2 font-normal text-faint">{group.origin}</span>}
-                        </th>
-                      </tr>
-                    )}
-                    {sorted(group.items, sort).map(row)}
-                  </Fragment>
+    <div className={cn("grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-x-5 gap-y-4", detail && (detail.wide ? "grid-cols-[minmax(0,1fr)_28rem]" : "grid-cols-[minmax(0,1fr)_21rem]"))}>
+      <div className={cn("flex flex-wrap items-center gap-2", detail && "col-span-2")}>
+        {items.length > 0 && (
+          <>
+            <div className="relative w-64 max-w-full">
+              <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-faint" />
+              <Input
+                id={searchId}
+                type="search"
+                aria-label={searchLabel}
+                placeholder="Search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => event.key === "Escape" && query && (event.preventDefault(), setQuery(""))}
+                className="pr-8 pl-8"
+              />
+              {!query && <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>}
+            </div>
+            {filters.length > 1 && (
+              <ToggleGroup aria-label="Show" value={[filter.value]} onValueChange={([next]) => next && setView({ filter: next as Filter })}>
+                {filters.map(({ value, label, keep }) => (
+                  <ToggleGroupItem key={value} value={value} aria-label={label}>
+                    {label}
+                    <span className="text-label tabular-nums text-faint">{items.filter(keep).length}</span>
+                  </ToggleGroupItem>
                 ))}
-              </tbody>
-            </table>
+              </ToggleGroup>
+            )}
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {items.length > 1 && (
+            <ToggleGroup aria-label="Sort by" value={[view.sort]} onValueChange={([next]) => next && setView({ sort: next as SortKey })}>
+              {SORTS.map(({ value, label }) => (
+                <ToggleGroupItem key={value} value={value}>
+                  {label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           )}
+          {actions}
         </div>
       </div>
+      <div data-scroll-inside className="flex min-h-0 flex-col gap-5 overflow-y-auto pb-2">
+        {list()}
+        {narrowed && shown.length > 0 && (
+          <p className="px-4 text-label text-faint">
+            {count(shown.length)} of {count(items.length)} shown.{" "}
+            <button type="button" onClick={clear} className="rounded-sm text-accent-text ui-focus hover:underline">
+              Show all
+            </button>
+          </p>
+        )}
+      </div>
       {detail && (
-        <section id={detailId} aria-label={detail.label} data-scroll-inside className="min-h-0 self-start overflow-y-auto rounded-xl max-h-full">
+        <section id={detailId} aria-label={detail.label} data-scroll-inside className="max-h-full min-h-0 self-start overflow-y-auto rounded-xl">
           {detail.content}
         </section>
       )}
@@ -254,13 +337,25 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-lg bg-well px-3 py-2">
+      <dt className="text-caption text-muted">{label}</dt>
+      <dd className="text-title font-medium tabular-nums text-ink">{children}</dd>
+    </div>
+  );
+}
+
 const READ_ONLY: CustomizeSource[] = ["factory", "plugin"];
 
 export function ItemDetail({ item, actions, error }: { item: CustomizeItem; actions?: ReactNode; error?: string | null }) {
   return (
-    <div className={cn(cardClass, "flex flex-col gap-4")}>
-      <div className="flex flex-col gap-1">
-        <h4 className="text-title font-medium break-words text-ink">{item.name}</h4>
+    <div className={cn(cardClass, "flex flex-col gap-5")}>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <h4 className="min-w-0 text-title font-medium break-words text-ink">{item.name}</h4>
+          <Badge variant={item.enabled ? "done" : "outline"}>{item.enabled ? "On" : "Off"}</Badge>
+        </div>
         {item.description && <p className="text-body text-pretty text-muted">{item.description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -269,24 +364,24 @@ export function ItemDetail({ item, actions, error }: { item: CustomizeItem; acti
           {error}
         </p>
       )}
-      {READ_ONLY.includes(item.source) && <p className="text-label text-muted">Read-only, from {sourceLabel(item)}</p>}
+      {READ_ONLY.includes(item.source) && (
+        <p className="flex items-center gap-1.5 text-label text-muted">
+          <Lock aria-hidden className="size-3.5" />
+          Read-only, from {sourceLabel(item)}
+        </p>
+      )}
+      <dl aria-label="Usage" className="grid grid-cols-2 gap-2">
+        <Stat label="Uses (30d)">{count(item.uses)}</Stat>
+        <Stat label="Last used">{lastUsedText(item.last_used)}</Stat>
+        <Stat label="At session start">{tokenText(item.loaded_tokens, item.exact)}</Stat>
+        <Stat label="When used">{tokenText(item.use_tokens, false)}</Stat>
+      </dl>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-body">
-        <Fact label="Invoked">{item.invocation}</Fact>
+        <Fact label="Starts by">{item.invocation}</Fact>
         <Fact label="Source">{sourceLabel(item)}</Fact>
-        <Fact label="State">{item.enabled ? "On" : "Off"}</Fact>
         {item.origin && <Fact label="From">{item.origin}</Fact>}
         {item.scope && <Fact label="Scope">{SCOPE_LABELS[item.scope]}</Fact>}
         {item.version && <Fact label="Version">{item.version}</Fact>}
-        <Fact label="Loaded">
-          <span className="tabular-nums">{tokenText(item.loaded_tokens, item.exact)}</span>
-        </Fact>
-        <Fact label="On use">
-          <span className="tabular-nums">{tokenText(item.use_tokens, false)}</span>
-        </Fact>
-        <Fact label="Uses (30d)">
-          <span className="tabular-nums">{count(item.uses)}</span>
-        </Fact>
-        <Fact label="Last used">{lastUsedText(item.last_used)}</Fact>
       </dl>
       <div className="flex flex-col gap-1">
         <span className="text-label text-muted">{item.kind === "plugin" ? "Install path" : "Path"}</span>

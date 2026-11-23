@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuGroup, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteCustomizeItem, readCustomizeItem, saveCustomizeItem, type Customize, type CustomizeDraft, type CustomizeItem, type CustomizeKind, type CustomizeSaveRequest } from "@/ipc";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/settings/ConfirmDialog";
 import { cardClass } from "@/settings/parts";
 import { focusRow, ItemDetail, type Detail } from "./ItemBrowser";
-import { KINDS } from "./kinds";
+import { isOwn, KINDS } from "./kinds";
 
 type EditKind = CustomizeSaveRequest["kind"];
 type Scope = CustomizeSaveRequest["scope"];
@@ -19,10 +20,12 @@ type Scope = CustomizeSaveRequest["scope"];
 const EDIT_KINDS: CustomizeKind[] = ["skill", "agent", "rule", "memory"];
 export const canEdit = (kind: CustomizeKind): kind is EditKind => EDIT_KINDS.includes(kind);
 type EditableItem = CustomizeItem & { kind: EditKind };
-const editable = (item: CustomizeItem): item is EditableItem => (item.source === "user" || item.source === "project") && canEdit(item.kind);
+export const editable = (item: CustomizeItem): item is EditableItem => isOwn(item) && canEdit(item.kind);
 
 const NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const SCOPE_LABELS: Record<Scope, string> = { user: "User", project: "This project" };
+const SCOPE_LABELS: Record<Scope, string> = { user: "All your projects", project: "This project" };
+const SCOPE_HINTS: Record<Scope, string> = { user: "Claude uses it in every project.", project: "Claude uses it only in this project." };
+const nameOf = (value: string) => value.toLowerCase().replace(/\s+/g, "-");
 
 type Form = { name: string; description: string; paths: string; body: string };
 type Editing = { kind: EditKind; scope: Scope; item: CustomizeItem | null; base: Form; form: Form };
@@ -40,6 +43,8 @@ const draftOf = (form: Form): CustomizeDraft => ({
 });
 const changed = ({ form, base }: Editing) => JSON.stringify(form) !== JSON.stringify(base);
 const nameValid = ({ kind, form }: Editing) => kind === "memory" || NAME.test(form.name.trim());
+const nameTaken = ({ kind, scope, item, form }: Editing, items: CustomizeItem[]) =>
+  kind !== "memory" && items.some((entry) => entry.path !== item?.path && entry.kind === kind && entry.source === scope && entry.name === form.name.trim());
 
 type FieldProps = { label: string; hint?: string; error?: boolean; children: (props: { id: string; "aria-describedby"?: string; "aria-invalid"?: true }) => ReactNode };
 
@@ -61,11 +66,16 @@ function Field({ label, hint, error, children }: FieldProps) {
   );
 }
 
-type FormProps = { editing: Editing; error: string | null; onChange: (form: Form) => void; onSave: () => void; onCancel: () => void };
+type FormProps = { editing: Editing; project: string | null; taken: boolean; error: string | null; onChange: (form: Form) => void; onScope: (scope: Scope) => void; onSave: () => void; onCancel: () => void };
 
-function ItemForm({ editing, error, onChange, onSave, onCancel }: FormProps) {
+function nameHint(editing: Editing, taken: boolean) {
+  if (taken) return `A ${KINDS[editing.kind].noun.toLowerCase()} named ${editing.form.name.trim()} already exists there. Pick another name.`;
+  return "Lowercase letters, digits and hyphens, up to 64. Spaces become hyphens.";
+}
+
+function ItemForm({ editing, project, taken, error, onChange, onScope, onSave, onCancel }: FormProps) {
   const { kind, scope, item, form } = editing;
-  const valid = nameValid(editing);
+  const valid = nameValid(editing) && !taken;
   const canSave = valid && changed(editing);
   const edit = (patch: Partial<Form>) => onChange({ ...form, ...patch });
 
@@ -90,12 +100,24 @@ function ItemForm({ editing, error, onChange, onSave, onCancel }: FormProps) {
     >
       <header className="flex items-center gap-2 border-b border-rule p-4">
         <h4 className="min-w-0 truncate text-title font-medium text-ink">{item ? `Edit ${item.name}` : `New ${KINDS[kind].noun.toLowerCase()}`}</h4>
-        <Badge variant="outline">{SCOPE_LABELS[scope]}</Badge>
+        {item && <Badge variant="outline">{SCOPE_LABELS[scope]}</Badge>}
       </header>
       <div className="flex flex-col gap-5 p-4">
+        {!item && (
+          <div className="flex flex-col gap-2">
+            <span className="text-label font-medium text-ink">Use it in</span>
+            <ToggleGroup aria-label="Use it in" value={[scope]} onValueChange={([next]) => next && onScope(next as Scope)}>
+              <ToggleGroupItem value="project" disabled={!project}>
+                {SCOPE_LABELS.project}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="user">{SCOPE_LABELS.user}</ToggleGroupItem>
+            </ToggleGroup>
+            <p className="text-label text-muted">{project ? SCOPE_HINTS[scope] : `${SCOPE_HINTS.user} Pick a project at the top to add one for a single project.`}</p>
+          </div>
+        )}
         {kind !== "memory" && (
-          <Field label="Name" hint="Lowercase letters, digits and hyphens, up to 64." error={form.name !== "" && !valid}>
-            {(props) => <Input {...props} autoFocus spellCheck={false} autoComplete="off" value={form.name} onChange={(event) => edit({ name: event.target.value })} className="font-mono" />}
+          <Field label="Name" hint={nameHint(editing, taken)} error={form.name !== "" && !valid}>
+            {(props) => <Input {...props} autoFocus spellCheck={false} autoComplete="off" value={form.name} onChange={(event) => edit({ name: nameOf(event.target.value) })} className="font-mono" />}
           </Field>
         )}
         {kind !== "memory" && (
@@ -148,23 +170,32 @@ function DiscardDialog({ open, onKeep, onDiscard }: { open: boolean; onKeep: () 
   );
 }
 
+export function NewButton({ kind, onNew }: { kind: CustomizeKind; onNew: () => void }) {
+  return (
+    <Button size="sm" onClick={onNew}>
+      <Plus aria-hidden />
+      New {KINDS[kind].noun.toLowerCase()}
+    </Button>
+  );
+}
+
 type Places = { kind: CustomizeKind; project: string | null; extra?: ReactNode; onNew: (scope: Scope) => void };
 
 export function NewMenu({ kind, project, extra, onNew }: Places) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+      <DropdownMenuTrigger render={<Button size="sm" />}>
         <Plus aria-hidden />
         New {KINDS[kind].noun.toLowerCase()}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Save in</DropdownMenuLabel>
+          <DropdownMenuLabel>Use it in</DropdownMenuLabel>
           {extra}
-          <DropdownMenuItem onClick={() => onNew("user")}>{SCOPE_LABELS.user}</DropdownMenuItem>
           <DropdownMenuItem disabled={!project} onClick={() => onNew("project")}>
             {SCOPE_LABELS.project}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNew("user")}>{SCOPE_LABELS.user}</DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -174,7 +205,7 @@ export function NewMenu({ kind, project, extra, onNew }: Places) {
 let leaveGuard: ((then: () => void) => void) | null = null;
 export const guardLeave = (then: () => void) => (leaveGuard ? leaveGuard(then) : then());
 
-export function useItemEditor(project: string | null, reload: () => Promise<Customize | void>) {
+export function useItemEditor(project: string | null, reload: () => Promise<Customize | void>, items: CustomizeItem[] = []) {
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [leaving, setLeaving] = useState<(() => void) | null>(null);
@@ -210,7 +241,7 @@ export function useItemEditor(project: string | null, reload: () => Promise<Cust
       setSelected(id);
     });
 
-  const startNew = (kind: EditKind, scope: Scope) =>
+  const startNew = (kind: EditKind, scope: Scope = project ? "project" : "user") =>
     leave(() => {
       setError(null);
       setSelected(null);
@@ -228,6 +259,7 @@ export function useItemEditor(project: string | null, reload: () => Promise<Cust
 
   const startEdit = (item: EditableItem) =>
     run(async () => {
+      setSelected(item.id);
       const form = formOf(await readCustomizeItem(item.path));
       setEditing({ kind: item.kind, scope: item.source === "project" ? "project" : "user", item, base: form, form });
     });
@@ -245,10 +277,38 @@ export function useItemEditor(project: string | null, reload: () => Promise<Cust
 
   const remove = (item: CustomizeItem) =>
     run(async () => {
-      await deleteCustomizeItem(item.path);
+      try {
+        await deleteCustomizeItem(item.path);
+      } catch (reason) {
+        setSelected(item.id);
+        throw reason;
+      }
       await reload();
-      setSelected(null);
+      setSelected((current) => (current === item.id ? null : current));
+      setEditing((current) => (current?.item?.path === item.path ? null : current));
     });
+
+  const rowEnd = (item: CustomizeItem) => {
+    if (!editable(item)) return null;
+    return (
+      <>
+        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${item.name}`} title="Edit" onClick={() => leave(() => startEdit(item))}>
+          <Pencil aria-hidden />
+        </Button>
+        <ConfirmDialog
+          trigger={
+            <Button variant="ghost" size="icon-sm" aria-label={`Delete ${item.name}`} title="Move to Trash">
+              <Trash2 aria-hidden />
+            </Button>
+          }
+          title={`Move ${item.name} to the Trash?`}
+          description="Claude no longer loads it. You can put it back from the Trash."
+          action="Move to Trash"
+          onConfirm={() => remove(item)}
+        />
+      </>
+    );
+  };
 
   const actions = (item: CustomizeItem) => {
     if (!editable(item)) return null;
@@ -279,7 +339,18 @@ export function useItemEditor(project: string | null, reload: () => Promise<Cust
       return {
         label: editing.item ? editing.item.name : `New ${KINDS[editing.kind].noun.toLowerCase()}`,
         wide: true,
-        content: <ItemForm editing={editing} error={error} onChange={(form) => setEditing({ ...editing, form })} onSave={() => save(editing)} onCancel={() => leave(() => close(editing.item?.id ?? null))} />,
+        content: (
+          <ItemForm
+            editing={editing}
+            project={project}
+            taken={nameTaken(editing, items)}
+            error={error}
+            onChange={(form) => setEditing({ ...editing, form })}
+            onScope={(scope) => setEditing({ ...editing, scope })}
+            onSave={() => save(editing)}
+            onCancel={() => leave(() => close(editing.item?.id ?? null))}
+          />
+        ),
       };
     }
     if (!item) return null;
@@ -297,5 +368,5 @@ export function useItemEditor(project: string | null, reload: () => Promise<Cust
     />
   );
 
-  return { selected, select, startNew, detail, dialog };
+  return { selected, select, startNew, detail, dialog, rowEnd };
 }

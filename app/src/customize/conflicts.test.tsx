@@ -27,7 +27,7 @@ const unchecked = item("legacy");
 
 afterEach(cleanup);
 
-const rowOf = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) }).closest("tr")!;
+const rowOf = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) }).closest("li")!;
 
 test("a row shows a Duplicate badge only for an item with other places", () => {
   render(<ItemBrowser items={[duplicated, unique, unchecked]} selected={null} onSelect={() => {}} detail={null} empty="" />);

@@ -49,7 +49,9 @@ function serve(drafts: Record<string, CustomizeDraft> = {}) {
       items = [...items.filter((entry) => entry.path !== original_path), skill(draft.name, { description: draft.description, path: written })];
       return written;
     }
+    if (cmd === "measure_customize") return listed(items.map((entry) => ({ ...entry })), payload.project_path as string | null);
     if (cmd === "delete_customize_item") {
+      if ((payload.path as string).includes("locked")) throw new Error("File is locked");
       items = items.filter((entry) => entry.path !== payload.path);
       return null;
     }
@@ -60,7 +62,7 @@ function serve(drafts: Record<string, CustomizeDraft> = {}) {
 }
 
 const callsTo = (command: string) => calls.filter(([cmd]) => cmd === command).map(([, args]) => args);
-const names = () => screen.queryAllByRole("row").flatMap((row) => [...row.querySelectorAll("td button")].map((button) => button.textContent));
+const names = () => [...document.querySelectorAll("[data-item]")].map((button) => document.getElementById(button.getAttribute("aria-labelledby")!)?.textContent);
 const field = (name: string) => screen.getByLabelText(name) as HTMLInputElement | HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.change(field(name), { target: { value } });
 
@@ -81,14 +83,16 @@ test("a new user skill is created from the form with Cmd+S, then listed, selecte
   serve();
   await open();
   fireEvent.click(screen.getByRole("button", { name: "New skill" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "User" }));
   expect(document.activeElement).toBe(field("Name"));
+  expect(screen.getByRole("button", { name: "This project" }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "All your projects" }));
   const save = screen.getByRole("button", { name: "Save" });
   expect(save).toHaveProperty("disabled", true);
-  type("Name", "Release Notes");
+  type("Name", "-notes");
   expect(field("Name").getAttribute("aria-invalid")).toBe("true");
   expect(save).toHaveProperty("disabled", true);
-  type("Name", "release-notes");
+  type("Name", "Release Notes");
+  expect(field("Name").value).toBe("release-notes");
   type("Description", "Writes release notes");
   type("Body", "List the merged changes.");
   await act(async () => {
@@ -108,7 +112,35 @@ test("This project is not offered as a place for a new item while the picker sho
   serve();
   await open("");
   fireEvent.click(screen.getByRole("button", { name: "New skill" }));
-  expect((await screen.findByRole("menuitem", { name: "This project" })).getAttribute("aria-disabled")).toBe("true");
+  expect(screen.getByRole("button", { name: "This project" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "All your projects" }).getAttribute("aria-pressed")).toBe("true");
+});
+
+test("a new item cannot take the name of one that already exists in the same place", async () => {
+  items = [skill("tidy")];
+  serve();
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "New skill" }));
+  fireEvent.click(screen.getByRole("button", { name: "All your projects" }));
+  type("Name", "tidy");
+  type("Body", "Something.");
+  expect(field("Name").getAttribute("aria-invalid")).toBe("true");
+  expect(screen.getByText("A skill named tidy already exists there. Pick another name.")).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", true);
+});
+
+test("a row's own Delete button asks first and then moves the item to the Trash", async () => {
+  const tidy = skill("tidy");
+  items = [tidy, skill("notes")];
+  serve();
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete tidy" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Move tidy to the Trash?" });
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Move to Trash" }));
+  });
+  expect(callsTo("delete_customize_item")).toEqual([{ path: tidy.path }]);
+  await waitFor(() => expect(names()).toEqual(["notes"]));
 });
 
 test("editing a user skill loads its draft, saves the change under its old path and returns focus to the row", async () => {
@@ -172,6 +204,46 @@ test("deleting a user skill asks first, moves it to the Trash and drops it from 
   expect(callsTo("delete_customize_item")).toEqual([{ path: tidy.path }]);
   await waitFor(() => expect(names()).toEqual(["notes"]));
   expect(screen.queryByRole("region", { name: "tidy" })).toBeNull();
+});
+
+test("deleting one row keeps another row's open detail", async () => {
+  items = [skill("tidy"), skill("notes")];
+  serve();
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "notes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete tidy" }));
+  await act(async () => {
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+  });
+  await waitFor(() => expect(names()).toEqual(["notes"]));
+  expect(screen.getByRole("region", { name: "notes" })).not.toBeNull();
+});
+
+test("a row's Delete that fails shows why", async () => {
+  items = [skill("locked")];
+  serve();
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete locked" }));
+  await act(async () => {
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+  });
+  expect((await screen.findByRole("alert")).textContent).toContain("File is locked");
+});
+
+test("an item open for editing can still be saved after the list is measured again", async () => {
+  const tidy = skill("tidy");
+  items = [tidy];
+  serve({ [tidy.path]: { name: "tidy", description: "", paths: [], body: "Old." } });
+  await open();
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Edit tidy" }));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Measure again" }));
+  });
+  type("Body", "New.");
+  expect(field("Name").getAttribute("aria-invalid")).toBeNull();
+  expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", false);
 });
 
 test("a Factory or plugin item says where it comes from and offers no Edit or Delete", async () => {

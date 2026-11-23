@@ -75,7 +75,7 @@ test("a Factory agent opens in the editor and an agent from elsewhere opens read
 
 test("only a Factory skill has a switch, and it turns the skill on", async () => {
   await openSection("skills");
-  expect(within(await screen.findByRole("row", { name: /notes/ })).queryByRole("switch")).toBeNull();
+  expect(within((await screen.findByRole("button", { name: "notes" })).closest("li")!).queryByRole("switch")).toBeNull();
   fireEvent.click(screen.getByRole("switch", { name: "document" }));
   await waitFor(() => expect(callsTo("set_skill_enabled")).toEqual([{ name: "document", enabled: true }]));
 });

@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { Pencil, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -14,9 +14,9 @@ import { SkillSwitch } from "@/settings/SkillsTab";
 import { ProjectPicker } from "@/shell/ProjectPicker";
 import { SECTIONS } from "@/shell/SettingsNav";
 import type { SettingsSection } from "@/shell/types";
-import { ItemBrowser, pluginColumns, type Detail } from "./ItemBrowser";
-import { canEdit, guardLeave, NewMenu, useItemEditor } from "./ItemEditor";
-import { inSection, kindOf, KINDS } from "./kinds";
+import { ItemBrowser, ReadOnlyMark, type Detail } from "./ItemBrowser";
+import { canEdit, guardLeave, NewButton, NewMenu, useItemEditor } from "./ItemEditor";
+import { inSection, isOwn, kindOf, KINDS } from "./kinds";
 import { Overview } from "./Overview";
 
 const OVERVIEW = "Everything an agent gets in this project, what it costs in context before the first message, and how often it was used in the last 30 days.";
@@ -77,15 +77,21 @@ function useCustomize(path: string | null) {
 }
 
 const UNGROUPED: CustomizeKind[] = ["plugin", "memory"];
-const emptyText = (kind: CustomizeKind) => `No ${KINDS[kind].noun.toLowerCase()}s in this project.`;
+const emptyText = (kind: CustomizeKind) => {
+  const noun = KINDS[kind].noun.toLowerCase();
+  return canEdit(kind) ? `No ${noun}s here yet. Add one with New ${noun}.` : `No ${noun}s here yet.`;
+};
 
 type Reload = () => Promise<Customize | void>;
 
 function KindView({ data, kind, reload }: { data: Customize; kind: CustomizeKind; reload: Reload }) {
-  const editor = useItemEditor(data.project_path, reload);
+  const editor = useItemEditor(data.project_path, reload, data.items);
   const items = inSection(data.items, KINDS[kind].section);
   const item = items.find((entry) => entry.id === editor.selected);
-  const trailing = kind === "skill" ? (entry: CustomizeItem) => (entry.source === "factory" && entry.kind === "skill" ? <SkillSwitch name={entry.name} enabled={entry.enabled} onChanged={reload} /> : null) : undefined;
+  const rowEnd = (entry: CustomizeItem) => {
+    if (entry.source === "factory" && entry.kind === "skill") return <SkillSwitch name={entry.name} enabled={entry.enabled} onChanged={reload} />;
+    return isOwn(entry) ? editor.rowEnd(entry) : <ReadOnlyMark item={entry} />;
+  };
   return (
     <>
       <ItemBrowser
@@ -94,11 +100,12 @@ function KindView({ data, kind, reload }: { data: Customize; kind: CustomizeKind
         onSelect={editor.select}
         detail={editor.detail(item)}
         empty={emptyText(kind)}
+        viewKey={kind}
+        projectPath={data.project_path}
         searchLabel={`Search ${KINDS[kind].noun.toLowerCase()}s`}
-        columns={kind === "plugin" ? pluginColumns(data.project_path) : undefined}
         grouped={!UNGROUPED.includes(kind)}
-        trailing={trailing}
-        actions={canEdit(kind) && <NewMenu kind={kind} project={data.project_path} onNew={(scope) => editor.startNew(kind, scope)} />}
+        rowEnd={rowEnd}
+        actions={canEdit(kind) && <NewButton kind={kind} onNew={() => editor.startNew(kind)} />}
       />
       {editor.dialog}
     </>
@@ -108,7 +115,7 @@ function KindView({ data, kind, reload }: { data: Customize; kind: CustomizeKind
 function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
   const [view, setView] = useState<"agents" | "defaults">("agents");
   const { roles, tools, error, reload: reloadRoles } = useRoles();
-  const editor = useItemEditor(data.project_path, reload);
+  const editor = useItemEditor(data.project_path, reload, data.items);
   const selected = editor.selected;
   const items = inSection(data.items, "agents");
   const item = items.find((entry) => entry.id === selected);
@@ -130,6 +137,16 @@ function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
     content: <RoleEditor key={isNew ? NEW : target.name} role={target} isNew={isNew} tools={tools} taken={taken} onSaved={saved} onReset={reset} />,
   });
   const detail = selected === NEW ? roleEditor(NEW_ROLE, true) : role ? roleEditor(role, false) : editor.detail(item);
+  const rowEnd = (entry: CustomizeItem) => {
+    if (entry.source === "factory") {
+      return (
+        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${entry.name}`} title="Edit" onClick={() => editor.select(entry.id)}>
+          <Pencil aria-hidden />
+        </Button>
+      );
+    }
+    return isOwn(entry) ? editor.rowEnd(entry) : <ReadOnlyMark item={entry} />;
+  };
 
   return (
     <>
@@ -143,14 +160,21 @@ function AgentsView({ data, reload }: { data: Customize; reload: Reload }) {
             {error}
           </span>
         )}
-        {view === "agents" && (
-          <div className="ml-auto">
-            <NewMenu kind="agent" project={data.project_path} extra={<DropdownMenuItem onClick={() => editor.select(NEW)}>Factory</DropdownMenuItem>} onNew={(scope) => editor.startNew("agent", scope)} />
-          </div>
-        )}
       </div>
       {view === "agents" ? (
-        <ItemBrowser items={items} selected={selected} onSelect={editor.select} detail={detail} empty={emptyText("agent")} searchLabel="Search agents" grouped />
+        <ItemBrowser
+          items={items}
+          selected={selected}
+          onSelect={editor.select}
+          detail={detail}
+          empty={emptyText("agent")}
+          viewKey="agent"
+          projectPath={data.project_path}
+          searchLabel="Search agents"
+          grouped
+          rowEnd={rowEnd}
+          actions={<NewMenu kind="agent" project={data.project_path} extra={<DropdownMenuItem onClick={() => editor.select(NEW)}>Factory team</DropdownMenuItem>} onNew={(scope) => editor.startNew("agent", scope)} />}
+        />
       ) : (
         <div data-scroll-inside className="min-h-0 max-w-[960px] overflow-y-auto">
           <TeamDefaults roles={roles} />
@@ -181,7 +205,7 @@ function CustomizeView({ section, project, onProject, onSection }: { section: Se
     if (!data) return <Skeleton className="h-40 w-full rounded-xl" />;
     if (!kind) return <Overview data={data} onSection={onSection} />;
     if (kind === "agent") return <AgentsView data={data} reload={reload} />;
-    return <KindView data={data} kind={kind} reload={reload} />;
+    return <KindView key={kind} data={data} kind={kind} reload={reload} />;
   };
   return (
     <Section
