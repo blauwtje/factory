@@ -8,6 +8,7 @@ import { Conversation, ConversationContent, ConversationEmptyState, Conversation
 import { Message, MessageContent } from "@/components/ai/message";
 import { TextShimmer } from "@/components/motion/text-shimmer";
 import { agentHistory, sendMessage } from "@/ipc";
+import { historyByAgent } from "@/lib/sessionCache";
 import { ease } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Composer } from "./Composer";
@@ -18,7 +19,7 @@ import { QuestionCard, questionsOf } from "./QuestionCard";
 import { toRows, type Row } from "./rows";
 import { ToolGroup, ToolRow } from "./ToolRow";
 import { EMPTY_CHAT, reduce } from "./transcript";
-import type { AgentEventPayload, AnswerLabel, ChatAction, ChatItem, ChatState, Decision, PermissionItem } from "./types";
+import type { AgentEventPayload, AnswerLabel, ChatAction, ChatItem, ChatState, Decision, PermissionItem, Turn } from "./types";
 
 type Answer = (id: string, decision: Decision, answer: AnswerLabel) => void;
 
@@ -32,10 +33,16 @@ export type Focus = { agentId: string; text: string; seq: number; key: number };
 
 const HIGHLIGHT_MS = 2000;
 
-function step(view: View, action: ChatAction): View {
+function step(view: View, action: ChatAction | { type: "reload"; turns: Turn[] }): View {
+  if (action.type === "reload") return step({ ...view, items: view.items.slice(view.past), past: 0 }, { type: "history", turns: action.turns });
   const next = reduce(view, action);
   const past = action.type === "history" ? view.past + next.items.length - view.items.length : view.past;
   return { ...next, live: action.type !== "history", past, loaded: view.loaded || action.type === "history" };
+}
+
+function cachedView(agentId: string): View {
+  const turns = historyByAgent.get(agentId);
+  return turns ? step(EMPTY_VIEW, { type: "history", turns }) : EMPTY_VIEW;
 }
 
 function focusedKey(items: ChatItem[], past: number, focus: Focus): string | undefined {
@@ -148,7 +155,7 @@ type ChatViewProps = {
 };
 
 export function ChatView({ agentId, planPhase, composerTools, aboveComposer, focus, project }: ChatViewProps) {
-  const [{ items, status, queued, live, past, loaded }, dispatch] = useReducer(step, EMPTY_VIEW);
+  const [{ items, status, queued, live, past, loaded }, dispatch] = useReducer(step, agentId, cachedView);
   const rows = toRows(items, past);
   const last = items.at(-1);
   const lastPlanKey = rows.filter((row) => row.kind === "plan").at(-1)?.key;
@@ -169,7 +176,13 @@ export function ChatView({ agentId, planPhase, composerTools, aboveComposer, foc
 
   useEffect(() => {
     let current = true;
-    agentHistory(agentId).then((turns) => current && dispatch({ type: "history", turns }), () => undefined);
+    const cached = historyByAgent.get(agentId);
+    agentHistory(agentId).then((turns) => {
+      historyByAgent.set(agentId, turns);
+      if (!current) return;
+      if (!cached) dispatch({ type: "history", turns });
+      else if (JSON.stringify(cached) !== JSON.stringify(turns)) dispatch({ type: "reload", turns });
+    }, () => void historyByAgent.delete(agentId));
     return () => {
       current = false;
     };

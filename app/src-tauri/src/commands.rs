@@ -220,6 +220,7 @@ pub struct Core {
     running: Mutex<HashMap<String, Arc<Running>>>,
     openings: Openings,
     baselines: Mutex<HashMap<String, u64>>,
+    transcript_paths: Mutex<HashMap<String, PathBuf>>,
 }
 
 fn measurement_key(project: Option<&Path>) -> String {
@@ -308,6 +309,10 @@ fn decode_base64(text: &str) -> Result<Vec<u8>, CoreError> {
 
 fn find_transcript(root: &Path, session_id: &str) -> Option<PathBuf> {
     let file = format!("{session_id}.jsonl");
+    let direct = root.join(&file);
+    if direct.is_file() {
+        return Some(direct);
+    }
     fs::read_dir(root)
         .ok()?
         .flatten()
@@ -374,6 +379,7 @@ impl Core {
             running: Mutex::default(),
             openings: Openings::default(),
             baselines: Mutex::default(),
+            transcript_paths: Mutex::default(),
         }))
     }
 
@@ -385,6 +391,24 @@ impl Core {
         if let Err(error) = self.store().set_agent_status(agent_id, status) {
             eprintln!("mark agent {agent_id} {status}: {error}");
         }
+    }
+
+    fn locate(&self, root: &Path, session_id: &str) -> Option<PathBuf> {
+        let known = self.transcript_paths.lock().unwrap().get(session_id).cloned();
+        if let Some(path) = known.filter(|path| path.starts_with(root) && path.is_file()) {
+            return Some(path);
+        }
+        let path = find_transcript(root, session_id)?;
+        self.transcript_paths
+            .lock()
+            .unwrap()
+            .insert(session_id.into(), path.clone());
+        Some(path)
+    }
+
+    fn refresh_sessions(&self, index: &Index, root: &Path, ids: &[String]) -> Result<(), CoreError> {
+        let files: Vec<PathBuf> = ids.iter().filter_map(|id| self.locate(root, id)).collect();
+        Ok(index.refresh_files(&files)?)
     }
 
     fn jobs(&self) -> Result<Vec<(Project, Job)>, CoreError> {
@@ -439,7 +463,7 @@ impl Core {
         }
         let index = self.index()?;
         for (root, ids) in &sessions {
-            if let Err(error) = index.refresh_sessions(root, ids) {
+            if let Err(error) = self.refresh_sessions(&index, root, ids) {
                 eprintln!("index {}: {error}", root.display());
             }
         }
@@ -476,7 +500,7 @@ impl Core {
         let root = self.transcripts_of(account_id);
         agents
             .iter()
-            .filter_map(|agent| find_transcript(&root, &agent.session_id))
+            .filter_map(|agent| self.locate(&root, &agent.session_id))
             .filter_map(|path| fs::metadata(path).and_then(|meta| meta.modified()).ok())
             .filter_map(|time| time.duration_since(UNIX_EPOCH).ok())
             .map(|elapsed| elapsed.as_secs() as i64)
@@ -592,7 +616,7 @@ impl Core {
 
     fn transcript(&self, job_id: &str, session_id: &str) -> Result<Vec<Turn>, CoreError> {
         let root = self.transcripts_of(&self.job_account(job_id));
-        let Some(path) = find_transcript(&root, session_id) else {
+        let Some(path) = self.locate(&root, session_id) else {
             return Ok(Vec::new());
         };
         Ok(std::fs::read_to_string(path)?
@@ -638,7 +662,7 @@ impl Core {
         let (job, row) = self.agent(agent_id)?;
         let index = self.index()?;
         let root = self.transcripts_of(&self.job_account(&job.id));
-        index.refresh_sessions(&root, std::slice::from_ref(&row.session_id))?;
+        self.refresh_sessions(&index, &root, std::slice::from_ref(&row.session_id))?;
         Ok(json!({
             "categories": [],
             "totalTokens": index.context_tokens(&row.session_id)?,
@@ -907,7 +931,7 @@ impl Core {
             .iter()
             .map(|agent| agent.session_id.clone())
             .collect();
-        index.refresh_sessions(&self.transcripts_of(&self.job_account(job_id)), &sessions)?;
+        self.refresh_sessions(&index, &self.transcripts_of(&self.job_account(job_id)), &sessions)?;
         let per_agent = agents
             .into_iter()
             .map(|agent| {
@@ -935,7 +959,7 @@ impl Core {
         }
         let index = self.index()?;
         for (root, ids) in &sessions {
-            index.refresh_sessions(root, ids)?;
+            self.refresh_sessions(&index, root, ids)?;
         }
         Ok(index.search(query)?)
     }

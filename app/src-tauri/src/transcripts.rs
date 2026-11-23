@@ -357,14 +357,9 @@ impl Index {
         })
     }
 
-    pub fn refresh_sessions(&self, root: &Path, ids: &[String]) -> Result<(), StoreError> {
-        for file in transcript_files(root)? {
-            let is_session = file
-                .file_stem()
-                .is_some_and(|stem| ids.iter().any(|id| stem == id.as_str()));
-            if is_session {
-                self.read_new_lines(&file)?;
-            }
+    pub fn refresh_files(&self, files: &[PathBuf]) -> Result<(), StoreError> {
+        for file in files {
+            self.read_new_lines(file)?;
         }
         Ok(())
     }

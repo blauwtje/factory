@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { jobLinks, onAgentEvent, type JobLinks, type PullRequest } from "@/ipc";
+import { linksByJob } from "@/lib/sessionCache";
 import { cn } from "@/lib/utils";
 
 const STATES: Record<PullRequest["state"], { icon: LucideIcon; ink: string; word: string }> = {
@@ -22,9 +23,13 @@ const CHECKS: Record<NonNullable<PullRequest["checks"]>, { icon: LucideIcon; ink
 const open = (url: string) => () => void openUrl(url).catch(() => undefined);
 
 export function useJobLinks(jobId: string) {
-  const [links, setLinks] = useState<JobLinks>();
+  const [links, setLinks] = useState<JobLinks | undefined>(() => linksByJob.get(jobId));
   useEffect(() => {
-    const load = () => jobLinks(jobId).then(setLinks, () => undefined);
+    const load = () =>
+      jobLinks(jobId).then((found) => {
+        linksByJob.set(jobId, found);
+        setLinks(found);
+      }, () => void linksByJob.delete(jobId));
     load();
     window.addEventListener("focus", load);
     const stop = onAgentEvent(({ event }) => "Result" in event && load());

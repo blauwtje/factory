@@ -5,7 +5,9 @@ import { ChevronDown, Users } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { approvePlan, listAgents, listJobs, jobOverlaps, mergeForecast, mergeJob, onAgentEvent, resolveConflicts, onTokens, sessionTokens, type JobRow, type Overlap, type SessionTokens } from "@/ipc";
 import { Button } from "@/components/ui/button";
+import { readPersisted } from "@/lib/persisted";
 import { usePref } from "@/lib/prefs";
+import { agentsByJob } from "@/lib/sessionCache";
 import { cn } from "@/lib/utils";
 import { TitleActions } from "@/shell/title-actions";
 import type { PlanPhase } from "@/chat/PlanCard";
@@ -53,8 +55,8 @@ function toBusMessage(agentId: string, event: StreamEvent): BusMessage | undefin
 }
 
 export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus?: Focus; onCustomizeMcp?: () => void }) {
-  const [agents, setAgents] = useState<AgentRow[]>();
-  const [job, setJob] = useState<JobRow>();
+  const [agents, setAgents] = useState<AgentRow[] | undefined>(() => agentsByJob.get(jobId));
+  const [job, setJob] = useState<JobRow | undefined>(() => readPersisted<JobRow[]>("jobs")?.find((j) => j.id === jobId));
   const [outcome, setOutcome] = useState<MergeOutcome>();
   const [forecast, setForecast] = useState<MergeForecast>();
   const [overlaps, setOverlaps] = useState<Overlap[]>([]);
@@ -77,17 +79,19 @@ export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus
   }, [jobId]);
 
   const load = useCallback(
-    () => Promise.all([listAgents(jobId), listJobs()]),
-    [jobId],
-  );
-  const apply = useCallback(
-    ([rows, jobs]: [AgentRow[], JobRow[]]) => {
-      const found = jobs.find((j) => j.id === jobId);
-      setAgents(rows);
-      setJob(found);
-      if (found?.status === "done") mergeForecast(jobId).then(setForecast, () => undefined);
-      if (found && found.status !== "merged") jobOverlaps(jobId).then((list) => setOverlaps(list ?? []), () => undefined);
-    },
+    () =>
+      Promise.all([
+        listAgents(jobId).then((rows) => {
+          agentsByJob.set(jobId, rows);
+          setAgents(rows);
+        }),
+        listJobs().then((jobs) => {
+          const found = jobs.find((j) => j.id === jobId);
+          setJob(found);
+          if (found?.status === "done") mergeForecast(jobId).then(setForecast, () => undefined);
+          if (found && found.status !== "merged") jobOverlaps(jobId).then((list) => setOverlaps(list ?? []), () => undefined);
+        }),
+      ]),
     [jobId],
   );
   const roster = agents ?? [];
@@ -96,11 +100,11 @@ export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus
   const focused = focus && selection.focus !== focus && agents?.some((agent) => agent.id === focus.agentId);
   const selected = focused ? focus.agentId : selection.id;
 
-  const refresh = () => load().then(apply);
+  const refresh = load;
 
   useEffect(() => {
-    load().then(apply);
-  }, [load, apply]);
+    load();
+  }, [load]);
 
   useEffect(
     () =>
@@ -121,9 +125,9 @@ export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus
         });
         const message = toBusMessage(agent_id, event);
         if (message) setBusMessages((messages) => [...messages, message]);
-        if (message || "Init" in event || "Result" in event) load().then(apply);
+        if (message || "Init" in event || "Result" in event) load();
       }),
-    [load, apply],
+    [load],
   );
 
   const attempt = (title: string, run: () => Promise<void>) => async () => {
