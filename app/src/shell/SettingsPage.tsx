@@ -7,10 +7,11 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ModelMenu } from "@/components/ai/model-menu";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup as SegmentedGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { claudeInfo, type ClaudeInfo } from "@/ipc";
+import { claudeInfo, outputStyles, setOutputStyle, type ClaudeInfo } from "@/ipc";
 import { isMac } from "@/lib/platform";
 import { usePref, type Theme, type UsageMode } from "@/lib/prefs";
 import { PALETTES, useScheme, type Palette } from "@/lib/theme";
@@ -111,6 +112,35 @@ function UsageModeChoice() {
   );
 }
 
+function OutputStyleChoice() {
+  const [styles, setStyles] = useState<{ current: string; available: string[] }>();
+  useEffect(() => {
+    outputStyles().then(setStyles, (reason) => toast.error("Could not load output styles", { description: String(reason) }));
+  }, []);
+  if (!styles) return null;
+  const choose = (name: string | null) => {
+    if (!name) return;
+    setOutputStyle(name).then(
+      () => setStyles({ ...styles, current: name }),
+      (reason) => toast.error("Could not set the output style", { description: String(reason) }),
+    );
+  };
+  return (
+    <Select items={styles.available.map((name) => ({ value: name, label: name }))} value={styles.current} onValueChange={choose}>
+      <SelectTrigger aria-label="Output style" size="sm" className="min-w-36">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end">
+        {styles.available.map((name) => (
+          <SelectItem key={name} value={name}>
+            {name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function SessionsRows() {
   const [model, setModel] = usePref("leadModel", "");
   const [effort, setEffort] = usePref("leadEffort", "");
@@ -132,6 +162,11 @@ function SessionsRows() {
             }}
           />
         </SettingRow>
+        <div className="border-t border-rule">
+          <SettingRow label="Output style" description="How agents write their replies. Applies to agents that start after you change it." value={undefined}>
+            <OutputStyleChoice />
+          </SettingRow>
+        </div>
       </Panel>
       <Panel title="Merging">
         <SettingRow label="Ask before merging" description="Show a confirmation before a session's changes are merged." value={confirmMerge}>

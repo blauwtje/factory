@@ -57,11 +57,11 @@ const emitEvent = (agent_id: string, event: object) => act(async () => void (awa
 
 const tab = (name: string) => screen.findByRole("tab", { name: new RegExp(name) });
 
-test("the strip shows Orchestrator and each subagent as a tab and the lead is selected", async () => {
+test("the strip shows Orchestrator and each unfinished subagent as a tab and the lead is selected", async () => {
   renderJob();
   expect((await tab("Orchestrator")).getAttribute("aria-selected")).toBe("true");
   expect((await tab("builder")).getAttribute("aria-selected")).toBe("false");
-  expect(await tab("reviewer")).not.toBeNull();
+  expect(screen.queryByRole("tab", { name: /reviewer/ })).toBeNull();
 });
 
 test("a session with only the lead shows no strip and no status button", async () => {

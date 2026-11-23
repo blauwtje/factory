@@ -52,7 +52,7 @@ export function summarize(job: JobState | undefined, agents: AgentRow[], asking:
     case "merged":
       return { tone: "done", title: "Merged", detail: "The changes are in your branch." };
     case "failed":
-      return { tone: "failed", title: "The session failed", detail: "Open an agent to see what went wrong." };
+      return { tone: "failed", title: "The session failed", detail: job.failure ?? "No error was recorded. Send a message to try again." };
     case "planning":
       if (!agents.some((agent) => agent.status === "running")) return working(agents, asking, questioning);
       return { tone: "running", title: "Writing the plan", detail: "You approve it before anything is built." };

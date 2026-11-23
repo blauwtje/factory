@@ -17,7 +17,7 @@ import { Mark, ProjectAvatar } from "./brand";
 import { DeleteSessionDialog } from "./DeleteSessionDialog";
 import { RenameSessionDialog } from "./RenameSessionDialog";
 import { arrange, branchName, compactTokens, needsReply, type Arranged } from "./arrange";
-import { StatusDot } from "./status";
+import { STATUS_WORD, StatusDot } from "./status";
 import { relativeTime } from "./time";
 import { STATUS_LABELS, type Page, type ProjectSummary, type SessionSummary } from "./types";
 import { ViewOptions } from "./ViewOptions";
@@ -161,7 +161,7 @@ function SessionRow({ selected, onChanged, ...rest }: RowProps) {
             className={cn(
               "ui-press relative flex h-13 w-full flex-col justify-center gap-1 rounded-lg px-2.5 text-left ui-focus hover:bg-active/50",
               selected && "bg-accent/10 hover:bg-accent/10",
-              session.archived && "opacity-60",
+              (session.archived || session.status === "merged") && "opacity-60",
             )}
           >
             {selected && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent" />}
@@ -190,7 +190,7 @@ function SessionRow({ selected, onChanged, ...rest }: RowProps) {
             </span>
             <span className="flex w-full min-w-0 items-center gap-1.5 text-caption text-muted">
               {asking ? <span aria-hidden className="size-2 shrink-0 rounded-full bg-accent shadow-[0_0_0_3px_var(--accent-soft)]" /> : <StatusDot status={session.status} />}
-              <span className={cn("shrink-0", asking && "font-medium text-accent-text")}>{word}</span>
+              <span className={cn("shrink-0", asking ? "font-medium text-accent-text" : STATUS_WORD[session.status]?.className)}>{word}</span>
               {branch && (
                 <span className="flex min-w-0 items-center gap-1">
                   <GitBranch aria-hidden className="size-3 shrink-0 text-faint" />

@@ -14,9 +14,26 @@ use serde::Serialize;
 use serde_json::json;
 
 use crate::permission::{control_response, AllowedTools, Decision, Pending, PendingRequests};
-use crate::protocol::{parse_control_response, parse_line, Outcome, StreamEvent};
+use crate::protocol::{failure_reason, parse_control_response, parse_line, Outcome, StreamEvent};
 
 pub type Env = HashMap<String, String>;
+
+pub const DEFAULT_OUTPUT_STYLE: &str = "Concise";
+
+static OUTPUT_STYLE: Mutex<String> = Mutex::new(String::new());
+
+pub fn set_output_style(name: &str) {
+    *OUTPUT_STYLE.lock().unwrap() = name.trim().into();
+}
+
+pub fn output_style() -> String {
+    let chosen = OUTPUT_STYLE.lock().unwrap().clone();
+    if chosen.is_empty() {
+        DEFAULT_OUTPUT_STYLE.into()
+    } else {
+        chosen
+    }
+}
 
 const MIN_VERSION: (u32, u32, u32) = (2, 1, 326);
 #[cfg(windows)]
@@ -418,6 +435,11 @@ fn forward(
             );
         }
         if let StreamEvent::Result { queued, .. } = &mut event {
+            if let Some(message) = failure_reason(&text) {
+                if events.send(StreamEvent::Failure { message }).is_err() {
+                    return;
+                }
+            }
             *queued = turns
                 .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
                 .is_ok_and(|before| before > 1);
@@ -466,6 +488,9 @@ fn refuse(
     let _ = events.send(StreamEvent::Assistant {
         content: error.to_string(),
     });
+    let _ = events.send(StreamEvent::Failure {
+        message: error.to_string(),
+    });
     let _ = events.send(StreamEvent::Result {
         session_id: spec.session_id.clone(),
         outcome: Outcome::Failed,
@@ -483,6 +508,7 @@ impl Process {
         turns: &Turns,
     ) -> Result<Process, AgentError> {
         let (mut command, _) = resolve_claude(env)?;
+        let settings = json!({ "outputStyle": output_style() }).to_string();
         command
             .args([
                 "-p",
@@ -513,7 +539,7 @@ impl Process {
                 "--agent",
                 &format!("factory:{}", spec.role),
                 "--settings",
-                r#"{"outputStyle":"Concise"}"#,
+                &settings,
             ]);
         if let Some(mcp_config) = &spec.mcp_config {
             command.arg("--mcp-config").arg(mcp_config);

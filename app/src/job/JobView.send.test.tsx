@@ -36,19 +36,19 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-test("review comments sent from the Changes panel show in the lead's chat at once", async () => {
+test("review comments sent from the Diff panel show in the lead's chat at once", async () => {
   render(
     <TitleActionsProvider>
       <TitleActionsSlot />
       <JobView jobId="j1" />
     </TitleActionsProvider>,
   );
-  fireEvent.click(await screen.findByRole("button", { name: "Changes" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Diff" }));
   fireEvent.click(await screen.findByText("line 3"));
   fireEvent.change(screen.getByLabelText("Comment"), { target: { value: "rename this" } });
   fireEvent.click(screen.getByText("Add comment"));
   fireEvent.click(screen.getByText("Send 1 comment"));
   await act(async () => {});
-  fireEvent.click(screen.getByRole("button", { name: "Changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Diff" }));
   expect(screen.getByText("Review comments on your changes: - a.ts:3 (change): rename this")).toBeTruthy();
 });

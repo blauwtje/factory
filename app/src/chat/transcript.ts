@@ -44,7 +44,7 @@ function applyEvent(items: ChatItem[], event: StreamEvent, at: number): ChatItem
 function statusAfter(event: StreamEvent, status: TurnStatus): TurnStatus {
   if ("Result" in event) return "idle";
   if ("ControlRequest" in event) return "waiting";
-  if ("Init" in event || "RateLimit" in event || "Tasks" in event || "Compacted" in event) return status;
+  if ("Init" in event || "RateLimit" in event || "Tasks" in event || "Compacted" in event || "Failure" in event) return status;
   return "working";
 }
 

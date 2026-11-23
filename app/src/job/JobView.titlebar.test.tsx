@@ -8,8 +8,8 @@ import type { AgentRow } from "./types";
 const worktree = "~/code/app/.worktrees/session";
 const agents: AgentRow[] = [
   { id: "a1", name: "lead", role: "lead", kind: "lead", model: "claude-opus-5-5", effort: "high", why: "plans the work", worktree, status: "done", permission_mode: "" },
-  { id: "a2", name: "builder", role: "builder", model: "claude-sonnet-5-5", effort: "medium", why: "clear plan", worktree, status: "done", permission_mode: "" },
-  { id: "a3", name: "reviewer", role: "reviewer", model: "claude-sonnet-5-5", effort: "medium", why: "checks the work", worktree, status: "done", permission_mode: "" },
+  { id: "a2", name: "builder", role: "builder", model: "claude-sonnet-5-5", effort: "medium", why: "clear plan", worktree, status: "running", permission_mode: "" },
+  { id: "a3", name: "reviewer", role: "reviewer", model: "claude-sonnet-5-5", effort: "medium", why: "checks the work", worktree, status: "running", permission_mode: "" },
 ];
 
 beforeEach(() => {

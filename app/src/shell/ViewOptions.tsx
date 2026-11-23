@@ -1,37 +1,44 @@
 import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePref, type SessionGroup, type SessionSort, type SessionWindow } from "@/lib/prefs";
 
 const GROUPS: { value: SessionGroup; label: string }[] = [
-  { value: "none", label: "None" },
   { value: "project", label: "Project" },
   { value: "status", label: "Status" },
+  { value: "none", label: "None" },
 ];
 
 const SORTS: { value: SessionSort; label: string }[] = [
-  { value: "started", label: "Recently started" },
-  { value: "active", label: "Recently active" },
-  { value: "needs_reply", label: "Needs reply first" },
+  { value: "active", label: "Active" },
+  { value: "started", label: "Started" },
+  { value: "needs_reply", label: "Needs reply" },
 ];
 
 const WINDOWS: { value: SessionWindow; label: string }[] = [
-  { value: 1, label: "Last day" },
-  { value: 3, label: "3 days" },
-  { value: 7, label: "7 days" },
-  { value: 30, label: "30 days" },
+  { value: 1, label: "1d" },
+  { value: 3, label: "3d" },
+  { value: 7, label: "7d" },
+  { value: 30, label: "30d" },
   { value: 0, label: "All" },
 ];
+
+function Choice<T extends string | number>({ label, options, value, onChange }: { label: string; options: { value: T; label: string }[]; value: T; onChange: (value: T) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-label text-muted">{label}</span>
+      <ToggleGroup aria-label={label} size="sm" value={[String(value)]} onValueChange={([next]) => next !== undefined && onChange(options.find((option) => String(option.value) === next)!.value)} className="w-full">
+        {options.map((option) => (
+          <ToggleGroupItem key={option.value} value={String(option.value)} className="flex-1">
+            {option.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  );
+}
 
 export function ViewOptions() {
   const [group, setGroup] = usePref("sessionGroup", "project");
@@ -39,48 +46,19 @@ export function ViewOptions() {
   const [days, setDays] = usePref("sessionWindow", 0);
   const [archived, setArchived] = usePref("showArchived", false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="View options" />}>
+    <Popover>
+      <PopoverTrigger render={<Button variant="ghost" size="icon-xs" aria-label="View options" />}>
         <SlidersHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-48">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Group by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={group} onValueChange={(value) => setGroup(value as SessionGroup)}>
-            {GROUPS.map(({ value, label }) => (
-              <DropdownMenuRadioItem key={value} value={value}>
-                {label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={sort} onValueChange={(value) => setSort(value as SessionSort)}>
-            {SORTS.map(({ value, label }) => (
-              <DropdownMenuRadioItem key={value} value={value}>
-                {label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Show</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={days} onValueChange={(value) => setDays(value as SessionWindow)}>
-            {WINDOWS.map(({ value, label }) => (
-              <DropdownMenuRadioItem key={value} value={value}>
-                {label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuCheckboxItem checked={archived} onCheckedChange={setArchived}>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 gap-3">
+        <Choice label="Group by" options={GROUPS} value={group} onChange={setGroup} />
+        <Choice label="Sort by" options={SORTS} value={sort} onChange={setSort} />
+        <Choice label="Show sessions from" options={WINDOWS} value={days} onChange={setDays} />
+        <label className="flex items-center justify-between gap-3 border-t border-rule pt-3 text-label text-ink">
           Show archived
-        </DropdownMenuCheckboxItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <Switch checked={archived} onCheckedChange={setArchived} />
+        </label>
+      </PopoverContent>
+    </Popover>
   );
 }

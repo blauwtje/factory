@@ -43,7 +43,7 @@ const titles = () => screen.getAllByTitle(/^(Alpha|Beta|Gamma|Delta)$/).map((nod
 
 async function choose(item: string) {
   fireEvent.click(screen.getByRole("button", { name: "View options" }));
-  fireEvent.click(await screen.findByRole("menuitemradio", { name: item }));
+  fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: item }));
   await act(async () => {});
 }
 
@@ -56,13 +56,13 @@ test("grouping by status orders the groups and puts needs reply first", async ()
 
 test("sorting by recently started puts the newest main session first", async () => {
   renderSidebar();
-  await choose("Recently started");
+  await choose("Started");
   expect(titles()).toEqual(["Beta", "Gamma", "Alpha"]);
 });
 
 test("a one day window hides older sessions", async () => {
   renderSidebar();
-  await choose("Last day");
+  await choose("1d");
   expect(titles()).not.toContain("Alpha");
   expect(titles()).toContain("Beta");
 });
@@ -71,7 +71,7 @@ test("archived sessions show in their project group only when asked", async () =
   renderSidebar();
   expect(titles()).not.toContain("Delta");
   fireEvent.click(screen.getByRole("button", { name: "View options" }));
-  fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: "Show archived" }));
+  fireEvent.click(await screen.findByRole("switch", { name: "Show archived" }));
   await act(async () => {});
   expect(titles()).toContain("Delta");
   expect(screen.queryByRole("heading", { name: /Archived/ })).toBeNull();

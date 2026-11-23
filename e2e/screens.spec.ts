@@ -12,12 +12,17 @@ const JOB_ROWS = [
 ];
 
 const NOW = Math.floor(Date.now() / 1000);
+
+const CHANGES = [
+  { path: "src/search/query.ts", status: "Modified", binary: false, before: "export function search(query: string) {\n  const rows = db.all(\"SELECT * FROM items\");\n  return rows.filter((row) => row.title.includes(query));\n}\n\nexport function rank(rows: Item[]) {\n  return rows;\n}\n", after: "export function search(query: string, limit = 20) {\n  const rows = db.all(\"SELECT * FROM items WHERE title LIKE ?\", `%${query}%`);\n  return rank(rows).slice(0, limit);\n}\n\nexport function rank(rows: Item[]) {\n  return [...rows].sort((a, b) => b.updatedAt - a.updatedAt);\n}\n" },
+  { path: "src/search/index.test.ts", status: "Added", binary: false, before: "", after: "test(\"finds a title\", () => {\n  expect(search(\"dark\")).toHaveLength(1);\n});\n" },
+];
 const JOB_EXTRAS: Record<string, object> = {
   "solo-job": { account_id: "default", created_at: NOW - 5_400, last_active_at: NOW - 20, worktree: "~/code/web/.factory/worktrees/session", needs_reply: false, context_tokens: 62_000 },
   "team-job": { account_id: "default", created_at: NOW - 3_600, last_active_at: NOW - 600, worktree: "~/code/web/.factory/worktrees/session", needs_reply: true, context_tokens: 118_000 },
   "old-job": { account_id: "~/profiles/work/home", created_at: NOW - 172_800, last_active_at: NOW - 86_400, worktree: null, needs_reply: false, context_tokens: null },
   "api-job": { account_id: "~/profiles/work/home", created_at: NOW - 900, last_active_at: NOW - 30, worktree: "~/code/api/.factory/worktrees/session", needs_reply: false, context_tokens: 24_000 },
-  "cli-job": { account_id: "default", created_at: NOW - 7_200, last_active_at: NOW - 3_000, worktree: "~/code/cli/.factory/worktrees/session", needs_reply: false, context_tokens: 9_000 },
+  "cli-job": { account_id: "default", created_at: NOW - 7_200, last_active_at: NOW - 3_000, worktree: "~/code/cli/.factory/worktrees/session", needs_reply: false, context_tokens: 9_000, failure: "API Error: 529 Overloaded. The API is busy; send a message to try again." },
 };
 
 const JOBS = JOB_ROWS.map((job) => ({ pinned: false, failed: job.status === "failed", cleaned_up: false, ...job, ...JOB_EXTRAS[job.id] }));
@@ -188,6 +193,9 @@ async function openApp(page: Page, jobs = JOBS) {
     if (cmd === "list_kinds") return KINDS;
     if (cmd === "claude_stats" || cmd === "claude_stats_snapshot") return STATS;
     if (cmd === "agent_history") return [];
+    if (cmd === "job_commits") return [];
+    if (cmd === "job_changes") return CHANGES;
+    if (cmd === "output_styles") return { current: "Concise", available: ["default", "Concise", "Explanatory", "Learning", "Proactive", "exo:adhd"] };
     if (cmd === "search_sessions") return [];
     if (cmd === "context_usage") {
       return {
@@ -285,6 +293,22 @@ test("screens", async ({ page }) => {
   });
   await page.waitForTimeout(400);
   await shot(page, "4-team-plan");
+
+  await page.getByRole("button", { name: /^Diff$/ }).click();
+  await page.getByText("src/search/query.ts").waitFor();
+  await page.waitForTimeout(800);
+  await shot(page, "4-team-diff");
+  await page.getByRole("button", { name: /^Diff$/ }).click();
+
+  await page.getByRole("button", { name: /Port config loader/ }).click();
+  await page.getByRole("region", { name: "Session status" }).waitFor();
+  await page.waitForTimeout(400);
+  await shot(page, "4-failed");
+
+  await page.getByRole("button", { name: "View options" }).click();
+  await page.waitForTimeout(300);
+  await shot(page, "4-view-options");
+  await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const nav = page.getByRole("navigation", { name: "Settings" });

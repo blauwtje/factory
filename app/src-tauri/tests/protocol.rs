@@ -2,7 +2,7 @@ use std::fs;
 
 use factory_lib::permission::Rule;
 use factory_lib::protocol::{
-    parse_line, parse_transcript_line, Outcome, StreamEvent, Turn, Window,
+    failure_reason, parse_line, parse_transcript_line, Outcome, StreamEvent, Turn, Window,
 };
 use serde_json::json;
 
@@ -239,4 +239,16 @@ fn a_transcript_compact_boundary_is_shown_and_its_summary_is_not() {
             },
         ]
     );
+}
+
+#[test]
+fn a_failed_turn_gives_its_reason() {
+    let errors = r#"{"type":"result","subtype":"error_during_execution","is_error":true,"session_id":"s","errors":["API Error: 529 Overloaded"]}"#;
+    let limit = r#"{"type":"result","subtype":"error_max_turns","is_error":true,"session_id":"s"}"#;
+    let fine = r#"{"type":"result","subtype":"success","is_error":false,"session_id":"s","result":"done"}"#;
+    let stopped = r#"{"type":"result","is_error":true,"terminal_reason":"aborted_streaming","session_id":"s"}"#;
+    assert_eq!(failure_reason(errors).as_deref(), Some("API Error: 529 Overloaded"));
+    assert_eq!(failure_reason(limit).as_deref(), Some("Claude stopped at its turn limit."));
+    assert_eq!(failure_reason(fine), None);
+    assert_eq!(failure_reason(stopped), None);
 }

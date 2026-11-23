@@ -71,7 +71,7 @@ function FileDiff({ change, onComment }: { change: FileChange; onComment: (draft
       {change.binary ? (
         <p className="px-3 pb-2 text-label text-muted">Binary file, not shown</p>
       ) : (
-        <DiffView path={change.path} before={change.before} after={change.after} onLineClick={setOpen} />
+        <DiffView path={change.path} before={change.before} after={change.after} onLineClick={setOpen} split />
       )}
       {open && (
         <CommentForm

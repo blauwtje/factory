@@ -1,8 +1,8 @@
 export const STATUS_LABELS = {
   planning: "Planning",
   waiting: "Idle",
-  awaiting_approval: "Needs approval",
-  building: "Building",
+  awaiting_approval: "Approve plan",
+  building: "Working",
   done: "Done",
   merged: "Merged",
   failed: "Failed",

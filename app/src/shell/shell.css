@@ -29,6 +29,17 @@
   }
 }
 
+[data-enter] {
+  animation: session-enter 180ms var(--ease-out) backwards;
+}
+
+@keyframes session-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 .status-dot {
   transition:
     background-color 200ms var(--ease-out),
@@ -62,7 +73,8 @@
     transition: none;
   }
 
-  [data-slide] {
+  [data-slide],
+  [data-enter] {
     animation: none;
   }
 

@@ -22,6 +22,7 @@ export type JobRow = {
   worktree?: string | null;
   needs_reply?: boolean;
   context_tokens?: number | null;
+  failure?: string | null;
 };
 
 export const listJobs = () => invoke<JobRow[]>("list_jobs");
@@ -36,6 +37,8 @@ export const permissionModes = () => invoke<string[]>("permission_modes");
 export const claudePermissionMode = () => invoke<string>("claude_permission_mode");
 export const setPermissionMode = (agent_id: string, mode: string) =>
   invoke("set_permission_mode", { agent_id, mode });
+export const outputStyles = () => invoke<{ current: string; available: string[] }>("output_styles");
+export const setOutputStyle = (name: string) => invoke("set_output_style", { name });
 export const approvePlan = (job_id: string) =>
   invoke("approve_plan", { job_id });
 export const mergeJob = (job_id: string) =>

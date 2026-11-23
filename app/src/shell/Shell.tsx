@@ -203,7 +203,7 @@ export function Shell({ projects, claude = CLAUDE_UNCHECKED, onSessionsChanged }
                 <TitleActionsSlot />
               </header>
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div key={page === "session" ? selectedId : page} className="flex min-h-0 flex-1 flex-col">
+                <div key={page === "session" ? selectedId : page} data-enter={page === "session" ? "" : undefined} className="flex min-h-0 flex-1 flex-col">
                   {page === "settings" && <SettingsPage claude={claude} section={section} />}
                   {page === "customize" && (
                     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-8 pb-6 pt-10">

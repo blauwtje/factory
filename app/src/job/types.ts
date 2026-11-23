@@ -20,7 +20,7 @@ export type AgentRow = {
   permission_mode: string;
 };
 
-export type JobState = { id: string; status: "planning" | "awaiting_approval" | "building" | "done" | "merged" | "failed" };
+export type JobState = { id: string; status: "planning" | "awaiting_approval" | "building" | "done" | "merged" | "failed"; failure?: string | null };
 
 export type MergeOutcome = { Merged: { commit: string } } | { Conflict: { files: string[] } };
 

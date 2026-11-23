@@ -46,11 +46,13 @@ export function DiffView({
   before,
   after,
   onLineClick,
+  split = false,
 }: {
   path: string;
   before: string;
   after: string;
   onLineClick?: (line: DiffLine) => void;
+  split?: boolean;
 }) {
   const scheme = useScheme();
   return (
@@ -62,7 +64,7 @@ export function DiffView({
       options={{
         theme: THEME,
         themeType: scheme,
-        diffStyle: "unified",
+        diffStyle: split ? "split" : "unified",
         diffIndicators: "classic",
         disableFileHeader: true,
         overflow: "scroll",

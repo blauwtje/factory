@@ -86,6 +86,9 @@ fn stopped_with(error: AgentError) -> Vec<StreamEvent> {
         StreamEvent::Assistant {
             content: error.to_string(),
         },
+        StreamEvent::Failure {
+            message: error.to_string(),
+        },
         StreamEvent::Result {
             session_id: "11111111-2222-3333-4444-555555555555".into(),
             outcome: Outcome::Failed,

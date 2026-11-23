@@ -101,6 +101,8 @@ pub fn run() {
             commands::claude_permission_mode,
             commands::set_permission_mode,
             commands::settings_changed,
+            commands::output_styles,
+            commands::set_output_style,
             commands::mcp_status,
             commands::mcp_reconnect,
             commands::archive_job,

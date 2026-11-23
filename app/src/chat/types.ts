@@ -8,6 +8,7 @@ export type StreamEvent =
   | { ControlRequest: { request_id: string; tool_name: string; input: Record<string, unknown>; rules?: PermissionRule[] } }
   | { Tasks: { tasks: BackgroundTask[] } }
   | { Compacted: { trigger: string; pre_tokens: number } }
+  | { Failure: { message: string } }
   | { Result: { session_id: string; outcome: "Finished" | "Failed" | "Stopped" } };
 
 export type BackgroundTask = { task_id: string; task_type: string; description: string };

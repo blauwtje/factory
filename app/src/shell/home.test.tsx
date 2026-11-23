@@ -57,7 +57,7 @@ test("the sidebar lists sessions with their status words", async () => {
   await mountShell();
   const sidebar = screen.getByRole("navigation", { name: "Sessions" });
   expect(within(sidebar).getByText("Fix login")).not.toBeNull();
-  expect(within(sidebar).getByText("Building")).not.toBeNull();
+  expect(within(sidebar).getByText("Working")).not.toBeNull();
 });
 
 test("Home opens on a line with the day and the chosen project, not a centered greeting, and lists no projects", async () => {

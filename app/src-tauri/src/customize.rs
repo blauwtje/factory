@@ -730,6 +730,61 @@ fn plugins(
     items
 }
 
+const BUILT_IN_STYLES: [&str; 5] = ["default", "Concise", "Explanatory", "Learning", "Proactive"];
+
+fn style_name(file: &Path) -> Option<String> {
+    if file.extension()? != "md" {
+        return None;
+    }
+    let text = read(file)?;
+    let named = text
+        .strip_prefix("---")
+        .and_then(|rest| rest.split("\n---").next())
+        .and_then(|front| front.lines().find_map(|line| line.trim().strip_prefix("name:")))
+        .map(|name| name.trim().trim_matches(['"', '\'']).to_string())
+        .filter(|name| !name.is_empty());
+    named.or_else(|| Some(file.file_stem()?.to_string_lossy().into_owned()))
+}
+
+fn styles_in(dir: &Path, prefix: Option<&str>) -> Vec<String> {
+    let Ok(read) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = read
+        .flatten()
+        .filter_map(|entry| style_name(&entry.path()))
+        .map(|name| prefix.map_or_else(|| name.clone(), |prefix| format!("{prefix}:{name}")))
+        .collect();
+    names.sort();
+    names
+}
+
+pub fn output_styles(claude_dir: &Path) -> Vec<String> {
+    let enabled: HashMap<String, bool> = json(&claude_dir.join("settings.json"))["enabledPlugins"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(id, on)| Some((id.clone(), on.as_bool()?)))
+        .collect();
+    let installed = json(&claude_dir.join("plugins/installed_plugins.json"));
+    let mut styles: Vec<String> = BUILT_IN_STYLES.iter().map(|name| name.to_string()).collect();
+    styles.extend(styles_in(&claude_dir.join("output-styles"), None));
+    for (id, installs) in installed["plugins"].as_object().into_iter().flatten() {
+        if !enabled.get(id).copied().unwrap_or(false) {
+            continue;
+        }
+        let user = installs.as_array().into_iter().flatten().find(|install| install["scope"] == "user");
+        let Some(dir) = user.and_then(|install| install["installPath"].as_str()) else {
+            continue;
+        };
+        let name = id.split_once('@').map_or(id.as_str(), |(name, _)| name);
+        styles.extend(styles_in(&Path::new(dir).join("output-styles"), Some(name)));
+    }
+    let mut seen = std::collections::HashSet::new();
+    styles.retain(|name| seen.insert(name.clone()));
+    styles
+}
+
 fn mark_conflicts(items: &mut [CustomizeItem]) {
     let canonical: Vec<PathBuf> = items
         .iter()

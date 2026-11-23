@@ -136,6 +136,13 @@ pub struct JobRow {
     pub worktree: Option<PathBuf>,
     pub needs_reply: bool,
     pub context_tokens: Option<i64>,
+    pub failure: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OutputStyles {
+    pub current: String,
+    pub available: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -355,6 +362,7 @@ impl Core {
         transcripts: PathBuf,
     ) -> Result<Arc<Core>, CoreError> {
         fs::create_dir_all(paths.data.join("attachments"))?;
+        agent::set_output_style(&fs::read_to_string(paths.data.join("output-style")).unwrap_or_default());
         let kit = Kit::open(paths.kit.clone(), &paths.data)?;
         let store = Store::open(&paths.data.join("factory.db"))?;
         let profiles = claude_dir.parent().map_or_else(PathBuf::new, |home| {
@@ -486,6 +494,7 @@ impl Core {
                         .filter(|path| path.exists()),
                     needs_reply: self.needs_reply(&job, &agents),
                     context_tokens: (context > 0).then_some(context),
+                    failure: self.failure(&job.id),
                     account_id,
                     job,
                     project_name: project.name,
@@ -725,6 +734,19 @@ impl Core {
             }
             Err(error) => eprintln!("fingerprint agent {agent_id}: {error}"),
         }
+    }
+
+    pub fn output_styles(&self) -> OutputStyles {
+        OutputStyles {
+            current: agent::output_style(),
+            available: customize::output_styles(&self.claude_dir),
+        }
+    }
+
+    pub fn set_output_style(&self, name: &str) -> Result<(), CoreError> {
+        fs::write(self.paths.data.join("output-style"), name.trim())?;
+        agent::set_output_style(name);
+        Ok(())
     }
 
     pub fn settings_changed(&self, agent_id: &str) -> Result<bool, CoreError> {
@@ -1019,7 +1041,7 @@ impl Core {
         };
         let lead_id = lead.id.clone();
         let started = self.start(&job, worktree, lead, false);
-        let running = started.inspect_err(|_| self.fail(&job.id))?;
+        let running = started.inspect_err(|error| self.fail(&job.id, &error.to_string()))?;
         running.lead.lock().unwrap().agent.send(&new.prompt)?;
         self.openings.lock().unwrap().insert(lead_id, new.prompt);
         Ok(CreatedJob { id, initialized })
@@ -1041,7 +1063,35 @@ impl Core {
         Ok(project)
     }
 
-    fn fail(&self, job_id: &str) {
+    fn failure_file(&self, job_id: &str) -> PathBuf {
+        self.paths.data.join("jobs").join(job_id).join("failure.txt")
+    }
+
+    fn failure(&self, job_id: &str) -> Option<String> {
+        fs::read_to_string(self.failure_file(job_id))
+            .ok()
+            .filter(|text| !text.trim().is_empty())
+    }
+
+    fn save_failure(&self, job_id: &str, reason: Option<&str>) {
+        let file = self.failure_file(job_id);
+        let saved = match reason {
+            Some(reason) => file
+                .parent()
+                .map_or(Ok(()), fs::create_dir_all)
+                .and_then(|()| fs::write(&file, reason)),
+            None => match fs::remove_file(&file) {
+                Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error),
+                _ => Ok(()),
+            },
+        };
+        if let Err(error) = saved {
+            eprintln!("save failure of job {job_id}: {error}");
+        }
+    }
+
+    fn fail(&self, job_id: &str, reason: &str) {
+        self.save_failure(job_id, Some(reason));
         if let Err(error) = self.store().set_job_status(job_id, JobStatus::Failed) {
             eprintln!("mark job {job_id} failed: {error}");
         }
@@ -1172,6 +1222,9 @@ impl Core {
         match &event {
             StreamEvent::RateLimit { windows } => self.apply_rate_limits(job_id, windows),
             StreamEvent::Init { .. } => self.keep_baseline(agent_id),
+            StreamEvent::Failure { message } if lead.lock().unwrap().id == agent_id => {
+                self.save_failure(job_id, Some(message));
+            }
             StreamEvent::Result {
                 outcome, queued, ..
             } if lead.lock().unwrap().id == agent_id => {
@@ -1252,15 +1305,18 @@ impl Core {
     fn lead_finished(&self, job_id: &str, agent_id: &str, outcome: Outcome) {
         let failed = outcome == Outcome::Failed;
         self.mark(agent_id, if failed { "failed" } else { "waiting" });
+        if outcome == Outcome::Finished {
+            self.save_failure(job_id, None);
+        }
         let Ok((_, job)) = self.job(job_id) else {
             return;
         };
-        if job.status != JobStatus::Building || outcome == Outcome::Stopped {
+        if !matches!(job.status, JobStatus::Building | JobStatus::Failed) || outcome == Outcome::Stopped {
             return;
         }
         let next = match self.list_agents(job_id) {
             Ok(_) if failed => JobStatus::Failed,
-            Ok(agents) if agents.iter().any(|agent| agent.status == "running") => return,
+            Ok(agents) if agents.iter().any(|agent| agent.status == "running") => JobStatus::Building,
             Ok(_) => JobStatus::Done,
             Err(_) => return,
         };
@@ -1552,7 +1608,7 @@ impl Core {
         let mut errors = Vec::new();
         for (_, job) in jobs.into_iter().filter(|(_, job)| open(job)) {
             if let Err(error) = self.resume_job(&job) {
-                self.fail(&job.id);
+                self.fail(&job.id, &error.to_string());
                 errors.push(error);
             }
         }
@@ -2179,6 +2235,16 @@ pub fn session_tokens(
 #[tauri::command(async, rename_all = "snake_case")]
 pub fn agent_history(core: State<'_, Arc<Core>>, agent_id: String) -> Result<Vec<Turn>, CoreError> {
     core.agent_history(&agent_id)
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+pub fn output_styles(core: State<'_, Arc<Core>>) -> OutputStyles {
+    core.output_styles()
+}
+
+#[tauri::command(async, rename_all = "snake_case")]
+pub fn set_output_style(core: State<'_, Arc<Core>>, name: String) -> Result<(), CoreError> {
+    core.set_output_style(&name)
 }
 
 #[tauri::command(async, rename_all = "snake_case")]

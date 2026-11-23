@@ -42,6 +42,9 @@ pub enum StreamEvent {
         outcome: Outcome,
         queued: bool,
     },
+    Failure {
+        message: String,
+    },
     Compacted {
         trigger: String,
         pre_tokens: u64,
@@ -324,6 +327,48 @@ impl Line {
             _ => None,
         }
     }
+}
+
+#[derive(Deserialize)]
+struct ResultLine {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    is_error: bool,
+    #[serde(default)]
+    subtype: String,
+    #[serde(default)]
+    result: Option<Value>,
+    #[serde(default)]
+    errors: Vec<Value>,
+    #[serde(default)]
+    terminal_reason: String,
+}
+
+pub fn failure_reason(line: &str) -> Option<String> {
+    let line: ResultLine = serde_json::from_str(line).ok()?;
+    if line.kind != "result" || !line.is_error || line.terminal_reason.starts_with("aborted") {
+        return None;
+    }
+    let errors: Vec<String> = line
+        .errors
+        .iter()
+        .map(|error| error.as_str().map_or_else(|| error.to_string(), str::to_string))
+        .filter(|error| !error.trim().is_empty())
+        .collect();
+    if !errors.is_empty() {
+        return Some(errors.join("\n"));
+    }
+    if let Some(text) = line.result.as_ref().and_then(Value::as_str).map(str::trim).filter(|text| !text.is_empty()) {
+        return Some(text.into());
+    }
+    Some(match line.subtype.as_str() {
+        "error_max_turns" => "Claude stopped at its turn limit.".into(),
+        "error_max_budget_usd" => "Claude stopped at its spending limit.".into(),
+        "error_during_execution" => "Claude stopped with an error during the turn.".into(),
+        "" | "success" => "Claude ended the turn with an error.".into(),
+        other => format!("Claude ended the turn with an error ({other})."),
+    })
 }
 
 pub fn parse_line(line: &str) -> Option<StreamEvent> {

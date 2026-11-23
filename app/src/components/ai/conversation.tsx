@@ -7,7 +7,7 @@ import { duration, ease } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 export function Conversation({ className, ...props }: ComponentProps<typeof StickToBottom>) {
-  return <StickToBottom className={cn("relative flex-1 overflow-y-hidden", className)} initial="smooth" resize="smooth" role="log" aria-live="polite" aria-relevant="additions" {...props} />;
+  return <StickToBottom className={cn("relative flex-1 overflow-y-hidden", className)} initial="instant" resize="smooth" role="log" aria-live="polite" aria-relevant="additions" {...props} />;
 }
 
 export function ConversationContent({ className, scrollClassName, ...props }: ComponentProps<typeof StickToBottom.Content>) {

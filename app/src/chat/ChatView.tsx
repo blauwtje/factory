@@ -222,7 +222,7 @@ export function ChatView({ agentId, planPhase, composerTools, aboveComposer, foc
 
   return (
     <div className="chat-flow flex h-full flex-col">
-      <Conversation className="min-h-0" aria-busy={last?.kind === "assistant" && last.streaming}>
+      <Conversation className="min-h-0" resize={live ? "smooth" : "instant"} aria-busy={last?.kind === "assistant" && last.streaming}>
         {rows.length === 0 && !thinking ? (
           <EmptyChat />
         ) : (

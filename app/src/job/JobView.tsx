@@ -152,8 +152,8 @@ export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus
     await refresh();
   });
 
-  const subagents = roster.filter((agent) => agent.kind !== "lead");
   const current = roster.find((a) => a.id === selected) ?? newestLead ?? roster[0];
+  const subagents = roster.filter((agent) => agent.kind !== "lead" && (agent.status !== "done" || agent.id === current?.id));
   const summary = failure ?? (job && summarize(job, roster, asking, outcome, forecast, questioning));
   const merged = outcome !== undefined && "Merged" in outcome;
   const conflicting = (outcome && "Conflict" in outcome) || (forecast && forecast !== "Clean");
@@ -198,7 +198,7 @@ export function JobView({ jobId, focus, onCustomizeMcp }: { jobId: string; focus
                 onClick={() => setChangesOpen((open) => !open)}
                 className={cn("ui-press flex h-7 cursor-pointer items-center rounded-md px-2 text-label font-medium ui-focus hover:text-ink", changesOpen ? "text-ink" : "text-muted")}
               >
-                Changes
+                Diff
               </button>
             )}
             {busMessages.length > 0 && (
