@@ -10,6 +10,7 @@
     "dev": "vite --config app/vite.config.ts",
     "build": "vite build --config app/vite.config.ts",
     "tauri": "tauri",
+    "dev:app": "tauri dev --no-watch",
     "lint": "eslint -c app/eslint.config.js app scripts",
     "typecheck": "tsc --noEmit -p app/tsconfig.json",
     "test": "vitest run --config app/vite.config.ts --passWithNoTests",
