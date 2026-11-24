@@ -111,7 +111,7 @@ fn echoes(notices: &Notices) -> Vec<String> {
                 StreamEvent::Assistant { content } => Some(content.clone()),
                 _ => None,
             },
-            Notice::Accounts(_) | Notice::Tokens(_) | Notice::StatsProgress(_) => None,
+            Notice::Accounts(_) | Notice::Tokens(_) | Notice::StatsProgress(_) | Notice::JobsChanged => None,
         })
         .collect()
 }

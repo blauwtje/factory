@@ -136,7 +136,7 @@ fn echoes(notices: &Notices) -> Vec<String> {
                 StreamEvent::Assistant { content } => Some(content.clone()),
                 _ => None,
             },
-            Notice::Accounts(_) | Notice::Tokens(_) | Notice::StatsProgress(_) => None,
+            Notice::Accounts(_) | Notice::Tokens(_) | Notice::StatsProgress(_) | Notice::JobsChanged => None,
         })
         .collect()
 }
@@ -842,6 +842,42 @@ fn a_new_session_shows_its_prompt_before_the_transcript_has_it() {
         .to_string();
     let history = serde_json::to_value(fixture.core.agent_history(&lead).unwrap()).unwrap();
     assert_eq!(history, json!([{"User": {"text": "Add login"}}]));
+}
+
+#[test]
+fn a_new_session_gets_a_short_title_and_branch_from_a_small_model() {
+    let fixture = fixture();
+    let job_id = fixture
+        .core
+        .create_job(NewJob {
+            account_id: None,
+            project_path: fixture.repo.clone(),
+            prompt: "Add login, name me".into(),
+            mode: JobMode::Auto,
+            model: None,
+            effort: None,
+            permission_mode: None,
+        })
+        .unwrap()
+        .id;
+    let job = wait_for("the generated name", || {
+        listed(&fixture.core, &job_id).filter(|job| job["branch"] == "factory/add-login-form")
+    });
+    assert_eq!(job["title"], "Login form");
+    assert!(git(&fixture.repo, &["branch", "--list", "factory/add-login-form"]).contains("add-login-form"));
+}
+
+#[test]
+fn a_transcript_cut_inside_a_character_still_shows_its_history() {
+    let fixture = fixture();
+    let job_id = new_job(&fixture, JobMode::Auto);
+    let lead = &agents(&fixture.core, &job_id)[0];
+    let session = lead["session_id"].as_str().unwrap();
+    let mut bytes = br#"{"type":"assistant","message":{"content":[{"type":"text","text":"Built it."}]}}"#.to_vec();
+    bytes.extend_from_slice(b"\n{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"\xF0\x9F");
+    fs::write(fixture.transcripts.join(format!("{session}.jsonl")), bytes).unwrap();
+    let history = serde_json::to_value(fixture.core.agent_history(lead["id"].as_str().unwrap()).unwrap()).unwrap();
+    assert!(history.as_array().unwrap().contains(&json!({"Event": {"Assistant": {"content": "Built it."}}})), "{history}");
 }
 
 #[test]

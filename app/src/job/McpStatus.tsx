@@ -11,6 +11,8 @@ const STATUS_LABELS: Record<McpServer["status"], string> = {
   disabled: "Disabled",
 };
 
+const BUILT_IN = new Set(["factory", "browser"]);
+
 const DOT_CLASS: Record<McpServer["status"], string> = {
   connected: "bg-done",
   failed: "bg-failed",
@@ -57,7 +59,10 @@ export function McpSection({ servers, onReconnect, onCustomize }: Props) {
             <li key={server.name} className="flex flex-col gap-1 text-label">
               <p className="flex items-center gap-2">
                 <span aria-hidden className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[server.status])} />
-                <span className="min-w-0 flex-1 truncate font-medium text-ink">{server.name}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-ink">
+                  {server.name}
+                  {BUILT_IN.has(server.name) && <span className="ml-1.5 font-normal text-faint">Built in</span>}
+                </span>
                 <span className={cn("text-muted", server.status === "failed" && "text-failed-ink", server.status === "needs-auth" && "text-approval-ink")}>{STATUS_LABELS[server.status]}</span>
               </p>
               {server.error && <p className="text-pretty pl-4 text-muted">{server.error}</p>}

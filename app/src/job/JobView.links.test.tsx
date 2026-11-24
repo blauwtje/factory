@@ -58,14 +58,13 @@ test("an issue the pull request closes is shown and opens on GitHub", async () =
   await waitFor(() => expect(opened("plugin:opener|open_url")).toContainEqual(expect.objectContaining({ url: pullRequest.issues[0].url })));
 });
 
-test("the branch opens on GitHub and its worktree folder opens from the branch popover", async () => {
+test("the branch opens on GitHub and the popover has no separate folder button", async () => {
   renderJob();
   fireEvent.click(await screen.findByRole("button", { name: /Branch factory\/login/ }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: /Open on GitHub/ }));
   await waitFor(() => expect(opened("plugin:opener|open_url")).toContainEqual(expect.objectContaining({ url: "https://github.com/acme/app/tree/factory/login" })));
-  fireEvent.click(within(dialog).getByRole("button", { name: /Open folder/ }));
-  await waitFor(() => expect(opened("open_worktree")).toContainEqual({ agent_id: "a1" }));
+  expect(within(dialog).queryByRole("button", { name: /Open folder/ })).toBeNull();
 });
 
 test("the branch name links to GitHub and the worktree path opens its folder", async () => {

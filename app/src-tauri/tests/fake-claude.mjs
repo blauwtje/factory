@@ -26,6 +26,12 @@ if (argv[0] === "auth" && argv[1] === "status") {
   process.exit(0);
 }
 
+if (!argv.includes("--agent") && flag("--output-format") === "json") {
+  const named = flag("-p").includes("name me");
+  emit({ type: "result", subtype: "success", result: named ? '{"title": "Login form", "branch": "add-login-form"}' : "no name" });
+  process.exit(0);
+}
+
 const role = flag("--agent").replace(/^factory:/, "");
 const model = flag("--model");
 const sessionId = flag("--session-id") ?? flag("--resume");

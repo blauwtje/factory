@@ -1,5 +1,5 @@
 export const STATUS_LABELS = {
-  planning: "Planning",
+  planning: "Running",
   waiting: "Idle",
   awaiting_approval: "Approve plan",
   building: "Working",

@@ -196,6 +196,12 @@ fn transcript_lines_become_turns_and_side_and_meta_lines_are_skipped() {
 }
 
 #[test]
+fn a_task_notification_is_not_shown_as_a_user_turn() {
+    let line = r#"{"type":"user","origin":{"kind":"task-notification"},"message":{"role":"user","content":"<task-notification>\n<status>stopped</status>\n</task-notification>"}}"#;
+    assert_eq!(parse_transcript_line(line), Vec::<Turn>::new());
+}
+
+#[test]
 fn a_live_compact_boundary_becomes_a_compacted_event() {
     let line = r#"{"type":"system","subtype":"compact_boundary","session_id":"s1","compact_metadata":{"trigger":"manual","pre_tokens":3550}}"#;
     let event = parse_line(line).unwrap();
@@ -251,4 +257,17 @@ fn a_failed_turn_gives_its_reason() {
     assert_eq!(failure_reason(limit).as_deref(), Some("Claude stopped at its turn limit."));
     assert_eq!(failure_reason(fine), None);
     assert_eq!(failure_reason(stopped), None);
+}
+
+#[test]
+fn a_tool_result_loses_its_terminal_colour_codes() {
+    let line = json!({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_09", "content": "### Error\nCall log:\n\u{1b}[2m  - navigating\u{1b}[22m", "is_error": true}]}}).to_string();
+    assert_eq!(
+        parse_line(&line),
+        Some(StreamEvent::ToolResult {
+            id: "toolu_09".into(),
+            output: "### Error\nCall log:\n  - navigating".into(),
+            is_error: true,
+        })
+    );
 }

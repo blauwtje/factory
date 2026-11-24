@@ -107,5 +107,5 @@ export function summaryParts(items: ToolItem[]): SummaryPart[] {
 
 export function errorLine(item: ToolItem): string | undefined {
   if (!item.result?.is_error) return undefined;
-  return item.result.output.split("\n").find((line) => line.trim())?.trim() ?? "Failed";
+  return item.result.output.split("\n").find((line) => line.trim() && !line.trimStart().startsWith("#"))?.trim() ?? "Failed";
 }

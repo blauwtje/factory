@@ -4,6 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 export const REPORT_HEADINGS = 'Goal, Outcome, Evidence, Files, Decisions, Open points';
+export const USER_REPORT = "End your turn with a short reply in the user's own language, with no fixed headings and no English labels";
 const PRINCIPLES = 'rules/principles.md';
 const FRONTMATTER_KEYS = ['description', 'effort', 'model', 'name', 'tools'];
 const LEAD_ROLES = {
@@ -49,7 +50,8 @@ function checkRole(role, kitRoot, models) {
     problems.push(`${role}: model ${fields.model} effort ${fields.effort}, expected ${expected.model} ${expected.effort}`);
   }
   for (const line of labelledLines(body)) problems.push(`${role}: source label in a prompt line: ${line}`);
-  if (!body.includes(REPORT_HEADINGS)) problems.push(`${role}: no report under the headings ${REPORT_HEADINGS}`);
+  const report = role in LEAD_ROLES ? USER_REPORT : REPORT_HEADINGS;
+  if (!body.includes(report)) problems.push(`${role}: no report line "${report}"`);
   if (!body.includes(PRINCIPLES)) problems.push(`${role}: does not point at ${PRINCIPLES}`);
   if (PLANNING_ROLES.includes(role) && !(body.includes('plan_ready') && body.includes('[plan approved]'))) {
     problems.push(`${role}: does not call plan_ready and wait for [plan approved]`);

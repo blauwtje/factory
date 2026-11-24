@@ -57,6 +57,17 @@ test("lists each server with its status and error and offers Reconnect on failed
   expect(screen.getAllByRole("button", { name: "Reconnect" })).toHaveLength(1);
 });
 
+test("marks the servers Factory adds itself as built in", async () => {
+  servers = [
+    { name: "factory", status: "connected" },
+    { name: "browser", status: "connected" },
+    { name: "github", status: "connected" },
+  ];
+  render(<Harness />);
+  expect(await screen.findByText("github")).not.toBeNull();
+  expect(screen.getAllByText("Built in")).toHaveLength(2);
+});
+
 test("reconnects the failed server and loads the status again", async () => {
   render(<Harness />);
   const before = statusCalls();

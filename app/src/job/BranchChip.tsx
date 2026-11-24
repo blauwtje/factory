@@ -5,6 +5,9 @@ import { CopyButton } from "@/components/ai/code-block";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { openWorktree } from "@/ipc";
+import { isMac } from "@/lib/platform";
+
+const FOLDER_ACTION = isMac ? "Open in Finder" : "Open in File Explorer";
 
 function BreakablePath({ text }: { text: string }) {
   const parts = text.split("/");
@@ -50,25 +53,27 @@ export function BranchChip({ branch, worktree, agentId, branchUrl }: Props) {
         </section>
         <section className="flex flex-col gap-1">
           <p className="text-label font-medium text-ink">Worktree</p>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => void openWorktree(agentId).catch(() => undefined)} className="ui-press min-w-0 flex-1 break-words cursor-pointer text-left font-mono text-label text-accent-text ui-focus underline-offset-4 hover:underline">
-              <BreakablePath text={worktree} />
+          <div className="flex items-start gap-1">
+            <button
+              type="button"
+              title={FOLDER_ACTION}
+              onClick={() => void openWorktree(agentId).catch(() => undefined)}
+              className="group/folder ui-press -mx-1.5 flex min-w-0 flex-1 cursor-pointer items-start gap-1.5 rounded-md px-1.5 py-1 text-left ui-focus transition-colors duration-(--duration-press) hover:bg-active"
+            >
+              <FolderOpen aria-hidden className="mt-px size-3.5 shrink-0 text-muted transition-colors duration-(--duration-press) group-hover/folder:text-accent-text" />
+              <span className="min-w-0 break-words font-mono text-label text-accent-text">
+                <BreakablePath text={worktree} />
+              </span>
             </button>
             <CopyButton text={worktree} label="Copy worktree path" />
           </div>
         </section>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void openWorktree(agentId).catch(() => undefined)}>
-            <FolderOpen aria-hidden />
-            Open folder
+        {branchUrl && (
+          <Button variant="outline" size="sm" className="gap-1.5 self-start" onClick={() => void openUrl(branchUrl).catch(() => undefined)}>
+            <ExternalLink aria-hidden />
+            Open on GitHub
           </Button>
-          {branchUrl && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void openUrl(branchUrl).catch(() => undefined)}>
-              <ExternalLink aria-hidden />
-              Open on GitHub
-            </Button>
-          )}
-        </div>
+        )}
       </PopoverContent>
     </Popover>
   );

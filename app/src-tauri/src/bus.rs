@@ -16,7 +16,7 @@ use crate::agent::{Agent, AgentError, AgentSpec};
 use crate::permission::{AllowedTools, Decision, Pending};
 use crate::protocol::{Outcome, StreamEvent};
 use crate::store::{self, Job, JobStatus, Store, StoreError};
-use crate::worktree::{agent_worktree, Worktree, WorktreeError};
+use crate::worktree::{agent_worktree, rename_branch, Worktree, WorktreeError};
 
 pub const LEAD_KIND: &str = "lead";
 const MODELS: [&str; 3] = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
@@ -227,7 +227,7 @@ struct Inner {
     key: String,
     mode: Mode,
     job: Job,
-    job_worktree: Worktree,
+    job_worktree: Mutex<Worktree>,
     worktrees_root: PathBuf,
     job_dir: PathBuf,
     plugin_dir: PathBuf,
@@ -500,7 +500,7 @@ impl Inner {
         if state.members.iter().any(|member| member.row.name == name) {
             return Err(BusError::DuplicateAgent(name));
         }
-        let worktree = agent_worktree(&self.worktrees_root, &self.job_worktree, &name)?;
+        let worktree = agent_worktree(&self.worktrees_root, &self.job_worktree.lock().unwrap(), &name)?;
         let mut row = store::Agent {
             id: Uuid::new_v4().to_string(),
             job_id: self.job.id.clone(),
@@ -808,13 +808,14 @@ impl Bus {
         let mcp_config = config.job_dir.join("mcp.json");
         let browser = json!({
             "command": "npx",
-            "args": ["-y", "@playwright/mcp@0.0.86", "--headless", "--isolated"],
+            "args": ["-y", "@playwright/mcp@0.0.86", "--headless", "--isolated", "--allow-unrestricted-file-access"],
         });
         let settings = json!({"mcpServers": {
             "factory": {
                 "type": "http",
                 "url": format!("http://{address}/mcp"),
                 "headers": {"Authorization": format!("Bearer {key}")},
+                "alwaysLoad": true,
             },
             "browser": browser,
         }});
@@ -830,7 +831,7 @@ impl Bus {
             key,
             mode: Mode::parse(&config.job.mode)?,
             job: config.job,
-            job_worktree: config.job_worktree,
+            job_worktree: Mutex::new(config.job_worktree),
             worktrees_root: config.worktrees_root,
             job_dir: config.job_dir,
             plugin_dir: config.plugin_dir,
@@ -910,6 +911,16 @@ impl Bus {
         let mut state = self.inner.state.lock().unwrap();
         let member = Inner::member(&mut state, name)?;
         Ok(member.agent.context_usage()?)
+    }
+
+    pub fn rename_job_branch(&self, branch: &str) -> bool {
+        let state = self.inner.state.lock().unwrap();
+        let mut job = self.inner.job_worktree.lock().unwrap();
+        if !state.members.is_empty() || rename_branch(&job.path, &job.branch, branch).is_err() {
+            return false;
+        }
+        job.branch = branch.into();
+        true
     }
 
     pub fn mcp_status(&self, name: &str) -> Result<Receiver<Value>, BusError> {

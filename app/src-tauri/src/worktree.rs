@@ -462,6 +462,10 @@ fn short_id(branch: &str) -> String {
     format!("{:08x}", hash & 0xffff_ffff)
 }
 
+pub fn rename_branch(dir: &Path, from: &str, to: &str) -> Result<(), WorktreeError> {
+    git(dir, &["branch", "-m", from, to]).map(drop)
+}
+
 pub fn branch_exists(from: &Path, branch: &str) -> bool {
     let reference = format!("refs/heads/{branch}");
     run(from, &["rev-parse", "--verify", "--quiet", &reference])

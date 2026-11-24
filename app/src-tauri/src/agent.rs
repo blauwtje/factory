@@ -556,6 +556,7 @@ impl Process {
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
         account_env(&mut command, env, spec.config_dir.as_deref());
+        command.env("ENABLE_TOOL_SEARCH", "true");
         let mut child = spawn_group(&mut command).map_err(io_error("start claude"))?;
         let stdin = child.inner().stdin.take().expect("stdin is piped");
         let stdout = child.inner().stdout.take().expect("stdout is piped");

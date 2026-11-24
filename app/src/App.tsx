@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { claudeInfo, listJobs, onAgentEvent, setTrayStatus, type ClaudeInfo, type JobRow } from "@/ipc";
+import { claudeInfo, listJobs, onAgentEvent, onJobsChanged, setTrayStatus, type ClaudeInfo, type JobRow } from "@/ipc";
 import { cached, fetchCached } from "@/lib/cache";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import { usePref } from "@/lib/prefs";
@@ -85,6 +85,8 @@ export function App() {
       if ("Init" in event || "Result" in event) reload();
     });
   }, [reload]);
+
+  useEffect(() => onJobsChanged(reload), [reload]);
 
   useEffect(() => {
     void getCurrentWindow().setBadgeCount(asking.size || undefined);

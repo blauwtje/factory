@@ -274,6 +274,11 @@ export function onStatsProgress(handler: (progress: Progress) => void) {
   return () => void unlisten.then((stop) => stop());
 }
 
+export function onJobsChanged(handler: () => void) {
+  const unlisten = listen("jobs-changed", () => handler());
+  return () => void unlisten.then((stop) => stop());
+}
+
 export function onAgentEvent(handler: (payload: AgentEventPayload) => void) {
   const unlisten = listen<AgentEventPayload>("agent-event", ({ payload }) =>
     handler(payload),

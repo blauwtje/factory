@@ -230,11 +230,31 @@ enum Suggestion {
 
 impl ToolOutput {
     fn into_text(self) -> String {
-        match self {
+        let text = match self {
             ToolOutput::Text(text) => text,
             ToolOutput::Parts(parts) => parts.into_iter().map(|part| part.text).collect(),
+        };
+        without_colour_codes(&text)
+    }
+}
+
+fn without_colour_codes(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c != '\u{1b}' {
+            plain.push(c);
+            continue;
+        }
+        if chars.next() == Some('[') {
+            for code in chars.by_ref() {
+                if ('@'..='~').contains(&code) {
+                    break;
+                }
+            }
         }
     }
+    plain
 }
 
 impl Block {
@@ -404,6 +424,8 @@ enum Entry {
         meta: bool,
         #[serde(default, rename = "isCompactSummary")]
         compact_summary: bool,
+        #[serde(default)]
+        origin: Option<Value>,
     },
     Assistant {
         message: Message,
@@ -441,6 +463,7 @@ pub fn parse_transcript_line(line: &str) -> Vec<Turn> {
             sidechain: false,
             meta: false,
             compact_summary: false,
+            origin: None,
         }) => match message.content {
             Prompt::Text(text) => vec![Turn::User { text }],
             Prompt::Blocks(blocks) => blocks

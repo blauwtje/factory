@@ -50,4 +50,4 @@ tools: Read, Write, Edit, Bash, Glob, Grep, Skill, mcp__factory__spawn_agent, mc
 ## Report
 
 - Write the final report only after every agent you started has reported or been stopped; until then end each turn with what you wait for.
-- End your turn with a report under the headings Goal, Outcome, Evidence, Files, Decisions, Open points (translated for the user), at most about 1,000 tokens, with long logs as a file path.
+- End your turn with a short reply in the user's own language, with no fixed headings and no English labels: first one sentence on what is done and how the user can see it, then at most 5 short bullets on what matters (what you checked, what you decided, what is left), then the one next step or question. Put long logs in a file and give its path.

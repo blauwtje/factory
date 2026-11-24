@@ -33,6 +33,7 @@ const DEFAULT_EFFORT: &str = "high";
 const LEAD_NAME: &str = "lead";
 const SLUG_CHARS: usize = 40;
 const SLUG_SUFFIX_CHARS: usize = 6;
+const NAMING_MODEL: &str = "claude-haiku-5-5";
 const CONTEXT_TIMEOUT: Duration = Duration::from_secs(60);
 const USAGE_INTERVAL: Duration = Duration::from_secs(300);
 
@@ -164,6 +165,7 @@ pub enum Notice {
     Accounts(Vec<Account>),
     Tokens(String),
     StatsProgress(Progress),
+    JobsChanged,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -264,17 +266,49 @@ pub fn title_from(prompt: &str) -> String {
     }
 }
 
-fn slug(title: &str, id: &str) -> String {
-    let words: Vec<String> = title
+fn kebab(text: &str) -> String {
+    let words: Vec<String> = text
         .to_lowercase()
         .split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|word| !word.is_empty())
         .map(String::from)
         .collect();
     let base: String = words.join("-").chars().take(SLUG_CHARS).collect();
-    let base = base.trim_end_matches('-');
-    let base = if base.is_empty() { "job" } else { base };
+    base.trim_end_matches('-').into()
+}
+
+fn slug(title: &str, id: &str) -> String {
+    let base = kebab(title);
+    let base = if base.is_empty() { "job" } else { &base };
     format!("{base}-{}", &id[..SLUG_SUFFIX_CHARS])
+}
+
+#[derive(Deserialize)]
+struct SuggestedName {
+    title: String,
+    branch: String,
+}
+
+fn suggest_name(config_dir: Option<&Path>, request: &str) -> Option<SuggestedName> {
+    let env = system_env();
+    let (mut command, _) = agent::resolve_claude(&env).ok()?;
+    let prompt = format!(
+        "Name this coding task. Reply with only JSON like {{\"title\": \"Add login form\", \"branch\": \"add-login-form\"}}. title: 2 to 5 words in the language of the request, sentence case, no period. branch: 2 to 4 lowercase English words joined by hyphens that name the change, like add-login-form or fix-empty-chat.\n\n<request>\n{request}\n</request>"
+    );
+    agent::no_window(&mut command)
+        .args(["-p", &prompt, "--model", NAMING_MODEL, "--output-format", "json"])
+        .args(["--setting-sources", "", "--strict-mcp-config", "--tools", ""])
+        .arg("--no-session-persistence")
+        .current_dir(std::env::temp_dir())
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    agent::account_env(&mut command, &env, config_dir);
+    let output = command.output().ok()?;
+    let reply = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find_map(|line| serde_json::from_str::<Value>(line).ok())?;
+    let text = reply["result"].as_str()?;
+    serde_json::from_str(text.get(text.find('{')?..=text.rfind('}')?)?).ok()
 }
 
 fn project_name(path: &std::path::Path) -> String {
@@ -630,7 +664,7 @@ impl Core {
         let Some(path) = self.locate(&root, session_id) else {
             return Ok(Vec::new());
         };
-        Ok(std::fs::read_to_string(path)?
+        Ok(String::from_utf8_lossy(&std::fs::read(path)?)
             .lines()
             .flat_map(parse_transcript_line)
             .collect())
@@ -1043,8 +1077,36 @@ impl Core {
         let started = self.start(&job, worktree, lead, false);
         let running = started.inspect_err(|error| self.fail(&job.id, &error.to_string()))?;
         running.lead.lock().unwrap().agent.send(&new.prompt)?;
+        let core = Arc::clone(self);
+        let (job_id, prompt) = (id.clone(), new.prompt.clone());
+        thread::spawn(move || core.name_job(&job_id, &prompt));
         self.openings.lock().unwrap().insert(lead_id, new.prompt);
         Ok(CreatedJob { id, initialized })
+    }
+
+    fn name_job(&self, job_id: &str, request: &str) {
+        let first_title = title_from(request);
+        let Some(name) = suggest_name(config_dir_of(&self.job_account(job_id)).as_deref(), request) else {
+            return;
+        };
+        let Ok((_, job)) = self.job(job_id) else {
+            return;
+        };
+        let title = title_from(&name.title);
+        if !title.is_empty() && job.title == first_title {
+            let _ = self.store().set_job_title(job_id, &title);
+        }
+        let base = kebab(&name.branch);
+        if let (false, Ok(running)) = (base.is_empty(), self.running(job_id)) {
+            let suffixed = format!("factory/{base}-{}", &job_id[..SLUG_SUFFIX_CHARS]);
+            let renamed = [format!("factory/{base}"), suffixed]
+                .into_iter()
+                .find(|branch| running.bus.rename_job_branch(branch));
+            if let Some(branch) = renamed {
+                let _ = self.store().set_job_branch(job_id, &branch);
+            }
+        }
+        (self.emit)(Notice::JobsChanged);
     }
 
     fn project(&self, path: &std::path::Path) -> Result<Project, CoreError> {
@@ -1927,6 +1989,7 @@ pub fn tauri_emit(app: AppHandle) -> Emit {
             Notice::Accounts(accounts) => app.emit("accounts", accounts),
             Notice::Tokens(job_id) => app.emit("tokens", json!({ "job_id": job_id })),
             Notice::StatsProgress(progress) => app.emit("stats-progress", progress),
+            Notice::JobsChanged => app.emit("jobs-changed", ()),
         };
         if let Err(error) = sent {
             eprintln!("emit: {error}");

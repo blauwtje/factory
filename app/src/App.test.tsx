@@ -39,6 +39,26 @@ test("lists the sessions of list_jobs under their project", async () => {
   expect(screen.getByRole("heading", { name: "app" })).not.toBeNull();
 });
 
+test("a jobs-changed event loads the session list again", async () => {
+  let title = "ik wil dat je voor mij";
+  mockIPC(
+    (cmd) =>
+      cmd === "list_jobs"
+        ? [{ id: "j1", title, status: "building", project_path: "~/code/app", project_name: "app" }]
+        : cmd === "list_projects"
+          ? []
+          : undefined,
+    { shouldMockEvents: true },
+  );
+  mockWindows("main");
+  render(<App />);
+  const sidebar = within(await screen.findByRole("navigation", { name: "Sessions" }));
+  await sidebar.findByText(title);
+  title = "Casino website frontend";
+  await act(() => emit("jobs-changed"));
+  expect(await sidebar.findByText("Casino website frontend")).not.toBeNull();
+});
+
 test("the sessions of the last run show before list_jobs answers", async () => {
   mockIPC((cmd) => (cmd === "list_jobs" ? [{ id: "j1", title: "Fix login", status: "building", project_path: "~/code/app", project_name: "app" }] : cmd === "list_projects" ? [] : undefined), { shouldMockEvents: true });
   render(<App />);
@@ -99,7 +119,7 @@ test("a second turn leaves Idle at its Init event and returns to Idle at its Res
   active = true;
   await act(() => emit("agent-event", { job_id: "j1", agent_id: "a1", event: { Init: { session_id: "s1", api_key_source: "none", model: "claude-opus-5-5" } } }));
   expect(sidebar.queryByText("Idle")).toBeNull();
-  expect(sidebar.getByText("Planning")).not.toBeNull();
+  expect(sidebar.getByText("Running")).not.toBeNull();
   active = false;
   await act(() => emit("agent-event", { job_id: "j1", agent_id: "a1", event: { Result: { session_id: "s1", outcome: "Finished" } } }));
   expect(sidebar.getByText("Idle")).not.toBeNull();

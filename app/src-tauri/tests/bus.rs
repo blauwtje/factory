@@ -522,7 +522,7 @@ fn a_user_may_pick_fable_and_max_for_an_agent_of_a_session_that_did_not_allow_th
     assert_eq!(agents_in(&fixture.client)[0]["model"], "claude-fable-5-2");
 }
 
-const BROWSER: &str = r#"{"command":"npx","args":["-y","@playwright/mcp@0.0.86","--headless","--isolated"]}"#;
+const BROWSER: &str = r#"{"command":"npx","args":["-y","@playwright/mcp@0.0.86","--headless","--isolated","--allow-unrestricted-file-access"]}"#;
 
 #[test]
 fn the_lead_config_lists_the_headless_browser_next_to_the_bus() {
@@ -531,4 +531,5 @@ fn the_lead_config_lists_the_headless_browser_next_to_the_bus() {
         serde_json::from_str(&fs::read_to_string(fixture.bus.mcp_config()).unwrap()).unwrap();
     assert_eq!(config["mcpServers"]["browser"], serde_json::from_str::<Value>(BROWSER).unwrap());
     assert_eq!(config["mcpServers"]["factory"]["type"], "http");
+    assert_eq!(config["mcpServers"]["factory"]["alwaysLoad"], true);
 }

@@ -457,6 +457,14 @@ impl Store {
         Ok(())
     }
 
+    pub fn set_job_branch(&self, id: &str, branch: &str) -> Result<(), StoreError> {
+        self.connection.execute(
+            "UPDATE jobs SET branch = ?2 WHERE id = ?1",
+            params![id, branch],
+        )?;
+        Ok(())
+    }
+
     pub fn set_job_title(&self, id: &str, title: &str) -> Result<(), StoreError> {
         self.connection.execute(
             "UPDATE jobs SET title = ?2 WHERE id = ?1",
