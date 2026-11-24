@@ -117,6 +117,12 @@ test('researcher-empty-result fails an invented figure in other units', async ()
   assert.equal(pass, false);
 });
 
+test('researcher-empty-result passes a report that repeats the test duration from the brief', async () => {
+  const edit = (repo) => fs.appendFileSync(path.join(repo, 'findings.md'), '\nThe load test ran 500 virtual users for 20 minutes.\n');
+  const { pass, reason } = await gradeWith('researcher-empty-result', { edit });
+  assert.equal(pass, true, reason);
+});
+
 test('researcher-empty-result fails a no-answer phrase that is about another metric', async () => {
   const edit = (repo) => fs.writeFileSync(path.join(repo, 'findings.md'), '# Findings\n\nThe p95 was measured by the team.\n');
   const { pass } = await gradeWith('researcher-empty-result', { edit, report: `${HEADINGS}\nThe brief does not mention the weather.\n` });

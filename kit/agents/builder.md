@@ -22,7 +22,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, TaskStop, mcp__browser
 - Rewrite a test that passes without the behaviour it claims to guard.
 - Use no broad catch and no silent fallback.
 - Install a missing dependency only with the project's package manager and lockfile, never with sudo.
-- Commit only through the land command the brief names.
+- Commit only through `node "${CLAUDE_PLUGIN_ROOT}/skills/build/scripts/land-task.mjs"` with the flags your brief or prompt file gives.
 
 ## Stop
 
@@ -33,4 +33,4 @@ tools: Read, Edit, Write, Bash, Glob, Grep, TaskStop, mcp__browser
 
 ## Report
 
-- End your turn with a report under the headings Goal, Outcome, Evidence, Files, Decisions, Open points, at most about 1,000 tokens, with long logs as a file path.
+- Unless the brief or prompt file sets its own reply layout, end your turn with a report under the headings Goal, Outcome, Evidence, Files, Decisions, Open points, at most about 1,000 tokens, with long logs as a file path.

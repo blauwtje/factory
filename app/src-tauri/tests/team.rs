@@ -254,7 +254,7 @@ fn a_team_agent_gets_a_config_with_only_the_headless_browser() {
         config,
         json!({"mcpServers": {"browser": {
             "command": "npx",
-            "args": ["-y", "@playwright/mcp@0.0.86", "--headless", "--isolated"],
+            "args": ["-y", "@playwright/mcp@0.0.86", "--headless", "--isolated", "--allow-unrestricted-file-access"],
         }}})
     );
 }

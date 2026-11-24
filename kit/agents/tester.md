@@ -19,7 +19,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep, mcp__browser
 - Test the product the way a user uses it when the plan has a UI or command; unit tests alone are not enough.
 - Keep tests fast and deterministic; report a flaky test instead of retrying it.
 - When the suite runs for minutes, run the tests the change touches first, then the full suite once.
-- Change only test files, and only the pass or fail state, never a test definition to make it pass.
+- Change only test files, and never an existing test's expected value or definition to make it pass.
 - Read the output of every run; exit code 0 alone is not a pass.
 
 ## Report

@@ -22,7 +22,7 @@ A plan path runs this loop. With no path and no decided change, run step 2's scr
    - `BLOCKED proof <command> did not fail first`: `land-task` refused the task: its proof passes without the change. Send a fresh `factory:builder` to tighten that test, or hand the plan to `factory:spec` for a `Red: none (<reason>)`, and name the task in the final report.
    - A build that fails twice, or a repair that must change a module outside the task's `Files:`: stop, report both and hand it to `factory:diagnose`.
    - A repair names the rule the code broke and fixes the hits the finding names; one guard that fails on a new instance, at most one new test per cause.
-   - Read `references/agent-cases.md` for a `Deferred:` proof or a missing `Proof:`.
+   - Read `references/agent-cases.md` for an `mcp:` proof or a missing `Proof:`.
 5. **Stay thin.** This session writes at most 2 product files in a run; send anything larger to a builder, one per independent part. Run no check of your own after a landing. Only a block, a failure or a question speaks.
 
 ## Models
@@ -44,7 +44,7 @@ A plan path runs this loop. With no path and no decided change, run step 2's scr
 
 A decided change with no plan file runs these steps, so a small change gets the same proof.
 
-1. **Orient.** Read only the ranges the request names. Otherwise dispatch `factory:researcher` with `Sources: repo` and read only its `Read next` ranges. Upstream decisions are settled.
+1. **Orient.** Read only the ranges the request names. Otherwise dispatch `factory:researcher` with `Sources: repo` asking in its brief for a `Read next:` line of path:line ranges under Files, and read only those. Upstream decisions are settled.
 2. **Decide the route.** An open product decision goes to `factory:spec` first. Count these facts: over two source, test or config files change, a dependency is added, a public signature changes, a persisted format or security boundary is crossed. With none, read `references/code-rules.md`, which every builder reads too then edit directly, run the check and commit it as in the end of the run, so the edit does not sit uncommitted. A test-first request continues at any count.
 3. **Workspace.** Settle where the change commits, as in step 1 above. For a multi-file change, confirm a clean working tree or name its changed paths.
 4. **Build.** Over 2 files, send each independent part to `factory:builder` in dependency order; otherwise read the same code rules and edit in dependency order.
